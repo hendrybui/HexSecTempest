@@ -79,3 +79,37 @@ Call the arsenal operational only when:
 - Active or networked commands require ScopeGuard approval receipts.
 - Tool output can be attached to evidence, linked to findings, and retested.
 - Recovered secrets, credentials, tokens, and private keys are never written to the ledger.
+
+## Linux Workstation Activation Record (2026-08-28)
+
+The commands above are macOS/Homebrew-oriented. This workstation is Linux Mint
+22.3 (Ubuntu Noble base), so the same loadout was installed with the native
+package managers:
+
+| Phase | Tools | Linux method |
+| --- | --- | --- |
+| Core evidence & recon | `yara`, `radamsa`, `whatweb`, `testssl`, `checksec` | apt / source build (radamsa from GitLab) |
+| Web/API pressure | `feroxbuster`, `dalfox`, `naabu`, `dnsx`, `waybackurls` | upstream tarball / `go install` |
+| Repo, package & cloud | `semgrep`, `checkov`, `prowler`, `syft`, `grype`, `osv-scanner`, `scoutsuite`, `pmapper`, `awscli`, `azure-cli` | pipx / Anchore installers / `go install` |
+| AI & agent boundary | `garak`, `promptfoo` | pipx / npm |
+| Smart contract & crypto | `slither-analyzer`, `mythril`, `echidna`, `solhint`, `cast` | pipx / GitHub releases / npm / Foundry release |
+| Reverse, firmware & mobile | `radare2`, `afl++`, `apktool`, `jadx`, `ghidra` (+ OpenJDK 21) | apt / GitHub releases |
+| Cloud CLI lane | `cloudfox`, `gcloud` (gcloud/gsutil/bq) | GitHub release / Google SDK tarball |
+| Mobile extras | `apkleaks`, `mobsfscan`, `objection`, `drozer`, `wafw00f` | pipx |
+
+Platform note: Ubuntu ships `testssl` (not `testssl.sh`); a
+`~/.local/bin/testssl.sh -> /usr/bin/testssl` symlink matches the catalog's
+expected binary name.
+
+**Verified state**
+
+- `npm run arsenal:doctor`: **67/68 command-ready tools (99%)**.
+- `npm run arsenal:smoke` (against `npm run server`): **125/125 checks pass** —
+  catalog spine, approval gates, evidence pipeline, local command execution,
+  and mission control all green.
+
+**Intentional waiver**
+
+- `class-dump` is macOS-only (dumps Objective-C headers from Mach-O binaries
+  via Apple tooling); it cannot run on Linux and is waived on this host. macOS
+  operators should `brew install class-dump`.
