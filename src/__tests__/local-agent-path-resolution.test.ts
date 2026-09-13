@@ -15,7 +15,7 @@
  * instead of returning a bare name that would bypass the safe .cmd/.bat launch path.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { resolveBin, detectLocalAgents, runLocalAgent, localAgentChat } from '../agent/local-agents.js';
@@ -44,6 +44,26 @@ function scratch(): string {
   return d;
 }
 
+/**
+ * A PATH scanned before the agent home that cannot contain any agent CLI: an empty scratch dir.
+ * It plays the same role the launchd-style `/usr/bin:/bin` used to (omit the well-known dirs under
+ * the agent home) without depending on the host — maintainer machines often have real claude /
+ * opencode binaries on /usr/bin, which would win the PATH-precedence scan and leak live CLIs
+ * into these fixtures.
+ */
+function agentlessPath(): string {
+  const d = scratch();
+  // The fake CLIs are /bin/sh scripts that drain/echo stdin with cat/printf, and the child
+  // inherits this PATH — expose exactly those host tools (echo is a shell builtin; neither
+  // name collides with an agent CLI).
+  for (const tool of ['cat', 'printf']) {
+    for (const dir of ['/bin', '/usr/bin']) {
+      if (existsSync(join(dir, tool))) { symlinkSync(join(dir, tool), join(d, tool)); break; }
+    }
+  }
+  return d;
+}
+
 /** Drop an executable (0o755) fake binary at `dir/name`; returns its absolute path. */
 function putExe(dir: string, name: string, content: string = FAKE_CLI): string {
   mkdirSync(dir, { recursive: true });
@@ -63,7 +83,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     const home = scratch();
     const bin = putExe(join(home, '.local', 'bin'), 'faketool');
     process.env.T3MP3ST_AGENT_HOME = home;      // real agent home for this scan
-    process.env.PATH = '/usr/bin:/bin';         // minimal launchd-style PATH — omits ~/.local/bin
+    process.env.PATH = agentlessPath();         // omits ~/.local/bin and every well-known dir
 
     expect(resolveBin('faketool')).toBe(bin);
   });
@@ -79,7 +99,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     const home = scratch();
     const bin = putExe(join(home, ...rel.split('/')), 'faketool');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
     expect(resolveBin('faketool')).toBe(bin);
   });
 
@@ -87,7 +107,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     const home = scratch();
     const bin = putExe(join(home, '.nvm', 'versions', 'node', 'v20.11.0', 'bin'), 'faketool');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
     expect(resolveBin('faketool')).toBe(bin);
   });
 
@@ -95,7 +115,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     const home = scratch();
     const bin = putExe(join(home, '.local', 'share', 'fnm', 'node-versions', 'v20.11.0', 'installation', 'bin'), 'faketool');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
     expect(resolveBin('faketool')).toBe(bin);
   });
 
@@ -128,7 +148,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     const link = join(linkDir, 'faketool');
     symlinkSync(real, link);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     expect(resolveBin('faketool')).toBe(link);   // the resolved candidate path, symlink followed for the file-check
   });
@@ -139,7 +159,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     mkdirSync(join(home, '.local', 'bin'), { recursive: true });
     writeFileSync(p, 'not executable', { mode: 0o644 });  // present but not +x
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     expect(resolveBin('faketool')).toBe('faketool');       // not the non-exec path
   });
@@ -150,7 +170,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     const home = scratch();
     mkdirSync(join(home, '.local', 'bin', 'faketool'), { recursive: true });  // a DIRECTORY, not a binary
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
     expect(resolveBin('faketool')).toBe('faketool');                          // bare name, not the dir path
   });
 
@@ -161,7 +181,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
 
   it('fails open to the bare name when nothing matches anywhere', () => {
     process.env.T3MP3ST_AGENT_HOME = scratch();
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
     expect(resolveBin('definitely-not-a-real-cli-xyz')).toBe('definitely-not-a-real-cli-xyz');
   });
 
@@ -169,7 +189,7 @@ describe.runIf(process.platform !== 'win32')('resolveBin — macOS/POSIX well-kn
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'faketool');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
     const orig = Object.getOwnPropertyDescriptor(process, 'platform') || { value: process.platform, configurable: true };
     Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
     try {
@@ -185,7 +205,7 @@ describe.runIf(process.platform !== 'win32')('detectLocalAgents — wiring: a we
     const home = scratch();
     const claudePath = putExe(join(home, '.local', 'bin'), 'claude');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';         // pre-fix: execFile('claude') → ENOENT → installed:false
+    process.env.PATH = agentlessPath();         // pre-fix: execFile('claude') → ENOENT → installed:false
     delete process.env.T3MP3ST_DISABLE_LOCAL_AGENTS;  // insurance: a leaked disable flag would short-circuit to []
 
     const agents = await detectLocalAgents();
@@ -208,7 +228,7 @@ describe.runIf(process.platform !== 'win32')('detectLocalAgents — wiring: a we
     mkdirSync(join(home, '.omp', 'agent'), { recursive: true });
     writeFileSync(join(home, '.omp', 'agent', 'agent.db'), 'fixture');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
     delete process.env.T3MP3ST_DISABLE_LOCAL_AGENTS;
 
     const agents = await detectLocalAgents();
@@ -219,12 +239,12 @@ describe.runIf(process.platform !== 'win32')('detectLocalAgents — wiring: a we
 
 describe.runIf(process.platform !== 'win32')('spawn call-sites use the resolved path (issue #78 — detected-but-unspawnable would be worse)', () => {
   // Behavioral, not a spawn spy: if the rewiring regressed to the bare `spec.bin`, spawn('claude')
-  // under PATH=/usr/bin:/bin throws ENOENT → ok:false / reject. Success proves the resolved path ran.
+  // under a PATH without the CLI throws ENOENT → ok:false / reject. Success proves the resolved path ran.
   it('runLocalAgent launches the well-known-dir CLI (not the bare name)', async () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const res = await runLocalAgent('claude', 'ping', { timeoutMs: 4000 });
     expect(res.ok).toBe(true);
@@ -235,7 +255,7 @@ describe.runIf(process.platform !== 'win32')('spawn call-sites use the resolved 
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'opencode', FAKE_OPENCODE);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const res = await runLocalAgent('opencode', 'ping', { model: 'openai/gpt-5', timeoutMs: 4000 });
     expect(res.ok).toBe(true);
@@ -246,7 +266,7 @@ describe.runIf(process.platform !== 'win32')('spawn call-sites use the resolved 
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'omp', FAKE_OMP);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const res = await runLocalAgent('omp', 'ping', { model: 'anthropic/claude-sonnet-4-5', timeoutMs: 4000 });
     expect(res.ok).toBe(true);
@@ -257,7 +277,7 @@ describe.runIf(process.platform !== 'win32')('spawn call-sites use the resolved 
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', FAKE_CLI_STDIN);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     await expect(localAgentChat('claude', 'ping', { timeoutMs: 4000 })).resolves.toContain('1.2.3');
   });
@@ -266,7 +286,7 @@ describe.runIf(process.platform !== 'win32')('spawn call-sites use the resolved 
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'opencode', FAKE_OPENCODE);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     await expect(localAgentChat('opencode', 'long planning prompt', {
       model: 'anthropic/claude-sonnet-4-5', timeoutMs: 4000,
@@ -277,7 +297,7 @@ describe.runIf(process.platform !== 'win32')('spawn call-sites use the resolved 
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'omp', FAKE_OMP);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     await expect(localAgentChat('omp', 'long planning prompt', {
       model: 'openai-codex/gpt-5', timeoutMs: 4000,
@@ -327,7 +347,7 @@ describe('localAgentChat — stale Claude session fallback (Tier 2)', () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', FAKE_CLI_RESUME_STALE);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const out = await localAgentChat('claude', 'ping', { sessionId: 'stale-uuid', timeoutMs: 4000 });
     expect(JSON.parse(out).result).toBe('fresh ok');
@@ -337,7 +357,7 @@ describe('localAgentChat — stale Claude session fallback (Tier 2)', () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', FAKE_CLI_RESUME_STALE);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const out = await localAgentChat('claude', 'ping', { timeoutMs: 4000 });
     expect(JSON.parse(out).result).toBe('fresh ok');
@@ -347,7 +367,7 @@ describe('localAgentChat — stale Claude session fallback (Tier 2)', () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', '#!/bin/sh\ncat >/dev/null 2>&1\necho "boom" >&2\nexit 1\n');
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     await expect(localAgentChat('claude', 'ping', { timeoutMs: 4000 })).rejects.toThrow(/boom/);
   });
@@ -356,7 +376,7 @@ describe('localAgentChat — stale Claude session fallback (Tier 2)', () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', FAKE_CLI_NONSTALE_RESUME_ERROR);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     // If the (old, unnarrowed) fallback fired here, this would RESOLVE with the fresh branch's
     // success text instead of rejecting — a rejection proves no retry happened.
@@ -368,7 +388,7 @@ describe('localAgentChat — stale Claude session fallback (Tier 2)', () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', FAKE_CLI_RESUME_STALE);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const out = await localAgentChat('claude', 'ping', { sessionId: 'stale-uuid', timeoutMs: 4000 });
     expect(JSON.parse(out).result).toBe('fresh ok');
@@ -380,7 +400,7 @@ describe('localAgentChat — stale Claude session fallback (Tier 2)', () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', FAKE_CLI_ECHO_ON_FRESH);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const out = await localAgentChat('claude', 'DELTA-ONLY-CONTENT', {
       sessionId: 'stale-uuid',
@@ -396,7 +416,7 @@ describe('localAgentChat — stale Claude session fallback (Tier 2)', () => {
     const home = scratch();
     putExe(join(home, '.local', 'bin'), 'claude', FAKE_CLI_ECHO_ON_FRESH);
     process.env.T3MP3ST_AGENT_HOME = home;
-    process.env.PATH = '/usr/bin:/bin';
+    process.env.PATH = agentlessPath();
 
     const out = await localAgentChat('claude', 'ONLY-PROMPT-CONTENT', { sessionId: 'stale-uuid', timeoutMs: 4000 });
     expect(out).toBe('ONLY-PROMPT-CONTENT');
