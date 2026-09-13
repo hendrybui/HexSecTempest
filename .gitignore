@@ -84,3 +84,6 @@ coverage-pr/
 data/
 reports/
 drills/
+
+# local Python virtualenv (not part of this Node project)
+venv/
