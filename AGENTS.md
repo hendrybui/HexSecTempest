@@ -60,7 +60,8 @@ Other subsystems: `src/general/`, `src/admiral/`, `src/recon/` (web-tree-sitter 
 
 ## Local-env gotchas
 
-- CI pins Node 22; on Node 24 the mock-based tests in `src/__tests__/local-agent-path-resolution.test.ts` fail (13 tests) — prefer Node 22 locally.
+- CI pins Node 22 (`.nvmrc`). A local Node 22 lives at `~/.local/node22` alongside the system Node — run repo commands with `PATH="$HOME/.local/node22/bin:$PATH" npm test`. (System Node 24 also satisfies `engines` and runs the suite green since the agent-path tests were made host-hermetic.)
+- `src/__tests__/local-agent-path-resolution.test.ts` pins PATH isolation via `agentlessPath()` — hosts with real `claude`/`opencode` CLIs on `/usr/bin` used to leak them into these fixtures (13 spurious failures); don't reintroduce host PATHs there.
 - The War Room server binds `127.0.0.1` by default; don't expose it. Outbound test traffic can go through `TEMPEST_PROXY_URL` (SOCKS5).
 - `T3MP3ST_SOURCE_ROOT` scopes binary-analysis reads; `T3MP3ST_TRUST_CLAUDE_SESSION` gates session reuse (default 0).
 

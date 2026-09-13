@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 T3MP3ST is a TypeScript multi-agent framework for **authorized** security testing: it turns an AI coding agent into a kill-chain operator (recon → exploit → report) driven from a CLI, an Express "War Room" UI, or MCP. Node >= 22.19.0, ESM throughout.
 
-Local-env caveats (verified 2026-09-09): CI pins Node 22 — on Node 24 the mock-based tests in `src/__tests__/local-agent-path-resolution.test.ts` fail (13 tests); prefer Node 22 locally. Run `npm install` after pulling — a stale `node_modules` breaks `typecheck`/`build` with misleading TS errors in `src/arsenal/browser.ts`.
+Local-env caveats (updated 2026-09-14): CI pins Node 22 (`.nvmrc`); a local Node 22 lives at `~/.local/node22` beside the system Node — prefix commands with `PATH="$HOME/.local/node22/bin:$PATH"` to use it. The 13 failures once seen in `src/__tests__/local-agent-path-resolution.test.ts` were host PATH leakage (real `claude`/`opencode` binaries on `/usr/bin` winning the resolver's PATH-precedence scan), not a Node-version issue; those pins are now hermetic via the test's `agentlessPath()` helper. Run `npm install` after pulling — a stale `node_modules` breaks `typecheck`/`build` with misleading TS errors in `src/arsenal/browser.ts`.
 
 ## Git layout (this checkout)
 
