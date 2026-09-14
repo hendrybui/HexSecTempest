@@ -1,7 +1,20 @@
 {
   "name": "t3mp3st",
   "version": "1.0.0",
-  "description": "Tactical Execution Multi-agent Platform for Elite Security Testing",
+  "description": "HexSecTempest — T3MP3ST with a HexStrike tool backbone: a multi-agent offensive-security framework for authorized security testing",
+  "author": "HexSecTempest contributors",
+  "contributors": [
+    "Derived from T3MP3ST (github.com/elder-plinius/T3MP3ST), AGPL-3.0"
+  ],
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://github.com/hendrybui/HexSecTempest#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hendrybui/HexSecTempest.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hendrybui/HexSecTempest/issues"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -14,7 +27,8 @@
     ".env.example",
     "docker-compose.yml",
     "index.ts",
-    "tsconfig.json"
+    "tsconfig.json",
+    "PROVENANCE.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -127,7 +141,8 @@
   },
   "bin": {
     "tempest": "./dist/cli.js",
-    "t3mp3st": "./dist/cli.js"
+    "t3mp3st": "./dist/cli.js",
+    "hexsectempest": "./dist/cli.js"
   },
   "keywords": [
     "penetration-testing",
@@ -137,12 +152,6 @@
     "ai",
     "llm"
   ],
-  "author": "t3mp3st contributors",
-  "license": "AGPL-3.0-or-later",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/elder-plinius/t3mp3st.git"
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
     "ajv": "^8.20.0",

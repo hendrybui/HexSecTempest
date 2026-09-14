@@ -1,6 +1,32 @@
-# 🌩️ T3MP3ST 🌩️
+# 🌩️ HexSecTempest 🌩️
 
 <!-- ⊰ sharp eye on the raw source. there's a flag for the curious: T3MP3ST{r3c31pt5_n0t_v1b3z} — the one that counts, you earn: run `npm run verify-claims`. LOVE PLINY ⊱ -->
+
+**T3MP3ST's kill-chain engine + a HexStrike tool backbone.** The multi-agent
+offensive-security framework below, extended with a bridge to
+[HexStrike AI](https://github.com/0x4m4/hexstrike-ai)'s MCP tool surface (recon,
+network, web, API, cloud, binary, OSINT) — so every HexStrike call still passes
+through T3MP3ST's scope gate and approval gate.
+
+Two honest caveats, because a tool count is not a capability:
+
+- **Opt-in and separately installed.** HexStrike is *not* vendored. Install it
+  yourself and set `T3MP3ST_HEXSTRIKE=1`; without that flag the engine behaves
+  exactly as upstream. Only tools HexStrike's own `/health` reports as present on
+  your host are reachable.
+- **24 tools are deliberately fenced.** `execute_command`, `create_file`,
+  `delete_file`, `generate_payload`, `metasploit_run`, host process control, and
+  proxy interception are discovered but never minted as callable tools — minting
+  them would defeat the command allowlist that keeps this thing safe to run.
+
+> **Derivative work.** HexSecTempest is built on
+> [T3MP3ST](https://github.com/elder-plinius/T3MP3ST) by elder-plinius and its
+> contributors, under `AGPL-3.0-or-later`. See
+> [PROVENANCE.md](PROVENANCE.md) for full attribution, the licence obligations
+> that carry over, and an itemised list of what this derivative changes.
+
+<details>
+<summary>The inherited T3MP3ST wordmark</summary>
 
 ```
  ▄▄▄█████▓▓█████  ███▄ ▄███▓ ██▓███  ▓█████   ██████ ▄▄▄█████▓
@@ -14,6 +40,8 @@
              ░  ░       ░               ░  ░      ░
 ```
 
+</details>
+
 <div align="center">
 
 **A multi-agent offensive-security framework, built to turn the AI coding agent you already run into a zero-day hunter.**
@@ -22,9 +50,9 @@
 
 </div>
 
-**Your AI coding agent is already a hacker — T3MP3ST hands it an arsenal.**
+**Your AI coding agent is already a hacker — HexSecTempest hands it an arsenal.**
 
-Point it at an authorized target and the kill chain runs itself: **recon → exploit → report**, from a browser War Room or the CLI, driven by the agent you're *already* signed into — Claude Code, Codex, Hermes, OpenCode, Oh My Pi — or a model you run **fully offline** (Ollama, LM Studio, vLLM). No new API keys, no cloud tenant, no second bill. Your agent is the brain; T3MP3ST is the war machine bolted around it. **Self-hosted storm. Keyless warfare.** ⚡
+Point it at an authorized target and the kill chain runs itself: **recon → exploit → report**, from a browser War Room or the CLI, driven by the agent you're *already* signed into — Claude Code, Codex, Hermes, OpenCode, Oh My Pi — or a model you run **fully offline** (Ollama, LM Studio, vLLM). No new API keys, no cloud tenant, no second bill. Your agent is the brain; HexSecTempest is the war machine bolted around it. **Self-hosted storm. Keyless warfare.** ⚡
 
 And it won't ask you to take its word for it. On **XBOW's own 104-challenge suite it scores 90.1% pass@1** — above XBOW's self-reported 85% — alongside hint-free CTF solves and a **cold hunt on real, post-cutoff CVEs the model had never seen**. Every number in this README recomputes from committed data with one command (`npm run verify-claims`). Loud about the mission, honest about the build — the [status table](#what-ships-today) says exactly what's live, what's scaffolding, and what's still roadmap; full receipts in [Benchmarks](#benchmarks).
 
@@ -38,13 +66,13 @@ Three things set it apart:
 
 ## ⚠️ Authorized use only
 
-T3MP3ST is an **offensive** security tool, built for **authorized** testing, research, and education. Point it **only** at systems you own or have **explicit, written permission** to test. Unauthorized access to computers, networks, or data is illegal in most jurisdictions — **you alone are responsible** for how you use this software and for staying inside the law and your rules of engagement. Bring the storm to *your* targets, not someone else's.
+HexSecTempest is an **offensive** security tool, built for **authorized** testing, research, and education. Point it **only** at systems you own or have **explicit, written permission** to test. Unauthorized access to computers, networks, or data is illegal in most jurisdictions — **you alone are responsible** for how you use this software and for staying inside the law and your rules of engagement. Bring the storm to *your* targets, not someone else's.
 
-T3MP3ST is provided **as-is under the AGPL-3.0 license, with no warranty and no liability** for any damage, loss, or misuse. The authors do not endorse, support, or condone unauthorized activity. Get permission. Stay in scope. Don't be a menace. 🫡
+HexSecTempest is provided **as-is under the AGPL-3.0 license, with no warranty and no liability** for any damage, loss, or misuse. The authors do not endorse, support, or condone unauthorized activity. Get permission. Stay in scope. Don't be a menace. 🫡
 
 ## Why it exists
 
-Offensive security sits behind years of practice and expensive tooling. The bet behind T3MP3ST is that a coordinated agent swarm puts real bug-hunting in reach of people who never got the invite, across web apps, CTFs, smart contracts, source code, and embedded/robotics OSS. That is an ambitious bet, and the sections below are careful to separate what already works from what is still a bet.
+Offensive security sits behind years of practice and expensive tooling. The bet behind HexSecTempest is that a coordinated agent swarm puts real bug-hunting in reach of people who never got the invite, across web apps, CTFs, smart contracts, source code, and embedded/robotics OSS. That is an ambitious bet, and the sections below are careful to separate what already works from what is still a bet.
 
 ## What it hunts
 
@@ -83,7 +111,7 @@ model id, prompts/context, generated output, and request metadata to Novita;
 your API key authenticates those requests. Review Novita's current
 [privacy policy](https://novita.ai/legal/privacy-policy) and
 [terms](https://novita.ai/legal/terms-of-service) before using sensitive target
-data. T3MP3ST does not claim independent assurance for sensitive workloads.
+data. HexSecTempest does not claim independent assurance for sensitive workloads.
 
 Slow local agents can be given more room with `T3MP3ST_LOCAL_AGENT_TIMEOUT_MS`
 for each CLI call, `T3MP3ST_TASK_TIMEOUT_MS` for mission tasks, and
@@ -118,7 +146,7 @@ Step-by-step operator usage lives in [Getting Started](docs/GETTING_STARTED.md).
 
 ### Docker
 
-Run T3MP3ST API server in a container (localhost only, not exposed externally):
+Run the HexSecTempest API server in a container (localhost only, not exposed externally):
 
 ```bash
 cp .env.example .env       # configure API keys
@@ -286,7 +314,7 @@ Deeper reading: [WALL_FORENSICS](docs/WALL_FORENSICS.md) (per-challenge misses),
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        T3MP3ST COMMAND                          │
+│                     HEXSECSTEMPEST COMMAND                      │
 ├─────────────────────────────────────────────────────────────────┤
 │   MISSION CONTROL  ◄──  TARGET MODEL  ──►  ARSENAL (TOOLS)       │
 │                          ▲                                       │
