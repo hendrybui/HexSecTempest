@@ -153,8 +153,15 @@ services:
     environment:
       - UPSTREAM=http://xss-stored:8080
       - CALLBACK=http://xss-callback:9999
+    # The gateway is the edge: it must sit on a NON-internal network as well as
+    # the internal one, or Docker cannot publish `ports:` at all. A container
+    # whose only network is `internal: true` has no external route, so the
+    # published 127.0.0.1:8082 mapping silently never gets created (verified:
+    # `docker port` empty, connection refused). The sibling gateways all pair
+    # <name>-internal with <name>-edge for exactly this reason.
     networks:
       - xss-callback-internal
+      - xss-edge
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2).read()"]
       interval: 5s
@@ -480,3 +487,11 @@ networks:
   xss-callback-internal:
     driver: bridge
     internal: true
+
+  # Edge network for xss-gateway. Without a non-internal network the published
+  # `127.0.0.1:8082:8080` mapping is never created — see the note on the
+  # xss-gateway service. Mirrors sqli-blind-edge / ssrf-internal-edge /
+  # rsa-weak-edge. Only the gateway joins it; the challenge container stays on
+  # xss-callback-internal alone, so it still has no outbound route.
+  xss-edge:
+    driver: bridge
