@@ -97,3 +97,69 @@ when a change introduces or updates measured behavior.
   failed attempts into a single failure bucket when reporting model behavior.
 - Do not update headline claims unless `npm run verify-claims` or the relevant
   claim-specific verifier re-derives the number from committed artifacts.
+
+---
+
+## Receipt: HexStrike MCP bridge (`src/arsenal/hexstrike-bridge.ts`)
+
+- **Change**: Bridges the HexStrike AI MCP tool surface (150 tools verified from a
+  live `tools/list`) into T3MP3ST's Arsenal as `CustomTool`s, so HexStrike calls
+  run through the existing egress scope gate and approval gate. Opt-in behind
+  `T3MP3ST_HEXSTRIKE=1`, matching how the specialist arsenal is gated, so the
+  built-ins-only baseline stays uncontaminated. Also adds
+  `scripts/hexstrike-doctor.mjs` (bridge verification harness) and
+  `src/__tests__/hexstrike-bridge.test.ts`.
+- **Scope class**: `local_lab`
+- **Target authority**: `not_applicable` — no external target is contacted. The
+  scope-denial test asserts against a synthetic out-of-scope hostname that is
+  never resolved or connected to.
+- **Network use**: `loopback` — the HexStrike Flask backend on `127.0.0.1:8888`.
+  The one live tool invocation is `server_health`, which touches no target host.
+- **Run mode labels**: `tool_backed`, `local_only`, `approval_gated`,
+  `static_test`
+- **Model/harness labels**:
+  - model: `not_applicable`
+  - provider: `not_applicable`
+  - harness: `vitest`, `scripts/hexstrike-doctor.mjs`
+  - agent_runtime: `DeepSeek Harness`
+  - tool_access: `local_only` (loopback backend, no external egress)
+  - target_class: `local_lab`
+  - run_mode: `single_agent`
+  - attempts: 21 test cases + 1 doctor run
+  - successes: 21 tests passed; doctor exit 0
+  - failures: 0
+  - abstentions: 0
+- **Commands run**:
+  - `npx vitest run src/__tests__/hexstrike-bridge.test.ts` -> pass (21/21)
+  - `npm test` -> pass (90 files, 1009 tests)
+  - `npm run lint` -> pass (0 errors; changed files contribute 0 warnings)
+  - `npm run typecheck` -> pass
+  - `npm run verify-claims` -> pass (27/27)
+  - `node scripts/hexstrike-doctor.mjs` -> pass (exit 0, 150 tools, spot-check ok)
+- **Artifacts**: `src/arsenal/hexstrike-bridge.ts`,
+  `src/__tests__/hexstrike-bridge.test.ts`, `scripts/hexstrike-doctor.mjs`,
+  `src/index.ts` (engine wiring)
+- **Redaction**: none required. Changed files were scanned for
+  keys/secrets/tokens/passwords and contain none; HexStrike runs unauthenticated
+  on loopback.
+- **Claims changed**: `none`. `npm run verify-claims` re-derives 27/27 unchanged;
+  no README or headline number was edited.
+- **Abstentions/refusals**: `not_applicable` — no model-facing run is measured.
+- **Residual risk**:
+  1. **HexStrike binds `0.0.0.0`**, not loopback, so `:8888` is LAN-reachable.
+     The bridge only ever dials `127.0.0.1`, but the backend itself should be
+     restricted on untrusted networks. T3MP3ST's own War Room remains
+     `127.0.0.1`-bound.
+  2. **74 of the 150 tools are absent on this host** (no metasploit, arjun,
+     graphql-scanner, gau, …). Affected tools degrade to an error result; the
+     bridge does not break. `/health`'s `tools_status` is the authority.
+  3. **The live test block self-skips** when the backend is unreachable, so CI
+     without HexStrike exercises only the pure conversion/classification paths.
+  4. **Not exercised live**: any tool that directs traffic at a target. Scope
+     denial is asserted at the arsenal gate with a synthetic host, not against a
+     real out-of-scope system.
+  5. **Fencing is a policy list, not a capability boundary.** `NON_CALLABLE_TOOLS`
+     keeps 24 arbitrary-local-capability tools off the callable surface; a future
+     HexStrike release adding an equivalent tool under a new name would default
+     to `active` (approval-gated) rather than fenced, so the list needs review on
+     HexStrike upgrades.

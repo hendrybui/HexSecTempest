@@ -243,6 +243,7 @@ import { buildAdapterTools } from './arsenal/adapter-tools.js';
 import { buildPostExTools } from './arsenal/post-ex.js';
 import { ApprovalController, type ApprovalRequest } from './arsenal/approval.js';
 import { TOOL_ADAPTERS } from './arsenal/catalog.js';
+import { HexStrikeBridge, type HexStrikeBridgeConfig } from './arsenal/hexstrike-bridge.js';
 import { OpsecController, createBalancedOpsecConfig } from './opsec/index.js';
 import { CommsChannel } from './comms/index.js';
 import { AnalysisEngine } from './analysis/index.js';
@@ -289,6 +290,17 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
   public readonly targetEnv: TargetEnvironment;
   public readonly vault: EvidenceVault;
   public readonly arsenal: Arsenal;
+  /**
+   * HexStrike MCP bridge (opt-in via T3MP3ST_HEXSTRIKE=1). When connected, its
+   * tools are registered INTO `arsenal`, so every HexStrike call passes through
+   * the same egress scope gate and approval gate as a built-in tool. Null when
+   * HexStrike is disabled or its backend was unreachable at startup.
+   */
+  private hexstrike: HexStrikeBridge | null = null;
+  /** Resolves once the HexStrike bridge has connected and registered its tools
+   *  (or immediately, when HexStrike is disabled). Await before relying on
+   *  HexStrike tools being present in the arsenal. */
+  public hexstrikeReady: Promise<void> = Promise.resolve();
   /** Capability approval + spicy-action warning gate for intrusive/dangerous tools. */
   public readonly approval: ApprovalController;
   public readonly opsec: OpsecController;
@@ -441,6 +453,24 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
       const existing = new Set(this.arsenal.getAllTools().map((t) => t.name));
       this.arsenal.registerMany(buildAdapterTools(TOOL_ADAPTERS, deps, existing));
       this.arsenal.registerMany(buildPostExTools(deps)); // metasploit_module (dangerous) + hydra_bruteforce (credential)
+    }
+
+    // Phase-2 (OPT-IN): arm the HexStrike MCP bridge. Behind T3MP3ST_HEXSTRIKE=1 for the same
+    // reason as the specialist arsenal above — the honest built-ins-only baseline stays
+    // uncontaminated. HexStrike exposes 150 MCP tools; the bridge mints them as CustomTools and
+    // registers them HERE, into this.arsenal, so the ScopeGuard egress gate and the approval gate
+    // wired above both apply to every HexStrike call. Tools that grant arbitrary local capability
+    // (execute_command, create_file/delete_file, generate_payload, …) are fenced by the bridge and
+    // never minted — see NON_CALLABLE_TOOLS in src/arsenal/hexstrike-bridge.ts.
+    //
+    // Connection is async while this constructor is not, so it is fire-and-forget: failures are
+    // logged and degrade to "no HexStrike tools" rather than crashing the engine. Callers that
+    // must know the outcome can await `hexstrikeReady`.
+    if (/^(1|true|on)$/i.test(process.env.T3MP3ST_HEXSTRIKE ?? '')) {
+      this.hexstrikeReady = this.enableHexStrike().catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.warn(`⚠️  HexStrike bridge unavailable: ${err instanceof Error ? err.message : String(err)}`);
+      });
     }
 
     // Advanced modules
@@ -1409,6 +1439,60 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
 
     const report = this.analysis.generateReport(mission.id, 'full_report');
     return this.analysis.exportToMarkdown(report);
+  }
+
+  // ===========================================================================
+  // HEXSTRIKE BRIDGE
+  // ===========================================================================
+
+  /**
+   * Connect the HexStrike MCP bridge and register its tools into the arsenal.
+   *
+   * Idempotent: a second call while already connected is a no-op. Throws when
+   * the bridge cannot connect, so an explicit caller can surface the failure
+   * (the constructor's auto-enable path swallows it instead).
+   */
+  public async enableHexStrike(config?: Partial<HexStrikeBridgeConfig>): Promise<void> {
+    if (this.hexstrike?.isConnected) return;
+
+    const bridge = this.hexstrike ?? new HexStrikeBridge(config);
+    await bridge.connect();
+
+    // Register only names the arsenal does not already hold, so a HexStrike tool
+    // can never shadow a built-in of the same name.
+    const existing = new Set(this.arsenal.getAllTools().map((t) => t.name));
+    const tools = bridge.getAllCustomTools().filter((t) => !existing.has(t.name));
+    this.arsenal.registerMany(tools);
+
+    this.hexstrike = bridge;
+  }
+
+  /**
+   * Live HexStrike bridge state for dashboards and health payloads.
+   * `enabled: false` means the bridge was never turned on or failed to connect.
+   */
+  public getHexStrikeStatus(): {
+    enabled: boolean;
+    connected: boolean;
+    discovered: number;
+    callable: number;
+    fenced: number;
+    fencedTools: string[];
+  } {
+    if (!this.hexstrike) {
+      return { enabled: false, connected: false, discovered: 0, callable: 0, fenced: 0, fencedTools: [] };
+    }
+    const status = this.hexstrike.getStatus();
+    return { enabled: true, ...status, fencedTools: this.hexstrike.getFencedToolNames() };
+  }
+
+  /** Close the HexStrike bridge and drop its tools from the arsenal. */
+  public async disableHexStrike(): Promise<void> {
+    const bridge = this.hexstrike;
+    if (!bridge) return;
+    this.hexstrike = null;
+    for (const name of bridge.getDiscoveredToolNames()) this.arsenal.unregister(name);
+    await bridge.disconnect();
   }
 }
 
