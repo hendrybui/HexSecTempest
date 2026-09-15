@@ -222,4 +222,50 @@ when a change introduces or updates measured behavior.
   3. **Fork divergence risk**: deviating the default from upstream T3MP3ST's
      Anthropic default is intentional (owner decision), but upstream merges may
      re-introduce Anthropic defaults — keep the receipt visible at rebase time.
-     HexStrike upgrades.
+
+---
+
+## Receipt: 9router provider option (`.env.example` documentation)
+
+- **Change**: Documents 9router (a local OpenAI-compatible gateway,
+  `github.com/decolua/9router`, 800+ models behind one key) as a flip-able model
+  backend in `.env.example`. Uses T3MP3ST's existing `local` provider slot (no
+  engine change): `TEMPEST_DEFAULT_PROVIDER=local` +
+  `TEMPEST_LOCAL_BASE_URL=http://localhost:20128/v1` + `TEMPEST_LOCAL_MODEL` +
+  `TEMPEST_LOCAL_API_KEY`. The owner's live `~/.t3mp3st/.env` received the same
+  block commented-out so OpenRouter/GLM stays the active default and 9router is
+  a one-line flip away.
+- **Scope class**: `docs_only`
+- **Target authority**: `not_applicable`
+- **Network use**: `loopback` — the one live proof call went to
+  `http://localhost:20128/v1/chat/completions` (the user's own 9router gateway on
+  this machine); no external target was contacted.
+- **Run mode labels**: `api_backed` (live LLM smoke), `planning_only`
+- **Model/harness labels**:
+  - model: `glm/glm-5.3-flash` (via 9router)
+  - provider: `local` (OpenAI-compatible wire to 9router)
+  - harness: `vitest` (config tests), `npx tsx` LLMBackbone probe
+  - tool_access: `none`
+  - attempts: 1 live `LLMBackbone.prompt()` + config resolution probe
+  - successes: route resolved correctly; GLM-5.3-Flash via 9router replied `"ROUTEROK"` in ~2.8s
+  - failures: 0
+  - abstentions: 0
+- **Commands run**:
+  - `npx tsx` probe with `TEMPEST_LOCAL_BASE_URL=http://localhost:20128/v1 TEMPEST_LOCAL_MODEL=glm/glm-5.3-flash TEMPEST_LOCAL_API_KEY=<key>` -> pass (LLMBackbone chat completed)
+  - `curl http://localhost:20128/v1/models` (with key) -> pass (841 models listed)
+- **Artifacts**: `.env.example`; live `~/.t3mp3st/.env` (not committed)
+- **Redaction**: `NINEROUTER_KEY` was never printed or committed; the live
+  config keeps it only inside `~/.t3mp3st/.env`.
+- **Claims changed**: `none` — `.env.example` comment only; no README/headline
+  number touched; `npm run verify-claims` unaffected.
+- **Abstentions/refusals**: `not_applicable`
+- **Residual risk**:
+  1. **Provider parity unknown**: 9router model output/refusal behavior may
+     differ from OpenRouter's for the same id; mission evidence honesty marks
+     provider/model explicitly, so results stay traceable.
+  2. **Gateway availability**: if the 9router process on `:20128` is down,
+     `TEMPEST_DEFAULT_PROVIDER=local` missions fail fast — the flip only makes
+     sense while the gateway is running. Keep OpenRouter as the default unless
+     9router is the deliberate choice.
+  3. **API-key handling**: `TEMPEST_LOCAL_API_KEY` requires the gateway key in
+     the operator's env file; never commit it.
