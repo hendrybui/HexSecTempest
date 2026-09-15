@@ -371,7 +371,16 @@ describe('Wedged-dispatch timeout backstop', () => {
   // A fake AgentLoop whose run() never settles — simulates a truly-hung LLM call
   // (the wedge symptom: operator pinned in `executing` forever).
   const makeWedgingLoop = () =>
-    ({ run: () => new Promise(() => { /* never resolves */ }) } as unknown as import('../agent/index.js').AgentLoop);
+    ({
+      run: () => new Promise(() => { /* never resolves */ }),
+      // Production AgentLoop also implements setLLM (phase-based model routing
+      // swaps the driven LLM per phase). The fixture MUST mirror that member or
+      // phase routing (T3MP3ST_MODEL_* env → routeModelForPhase) throws a
+      // TypeError inside executeTask, double-counts failedTasks in the catch,
+      // and breaks this backstop test. The swap is a no-op here — the point of
+      // the fixture is the run() that never settles.
+      setLLM: () => { /* phase routing no-op */ },
+    } as unknown as import('../agent/index.js').AgentLoop);
 
   it('OperatorAgent.abortActiveTask returns a wedged operator to idle so it can take new work', async () => {
     const { createOperator } = await import('../operators/index.js');
