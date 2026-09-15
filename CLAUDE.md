@@ -8,11 +8,19 @@ T3MP3ST is a TypeScript multi-agent framework for **authorized** security testin
 
 Local-env caveats (updated 2026-09-14): CI pins Node 22 (`.nvmrc`); a local Node 22 lives at `~/.local/node22` beside the system Node — prefix commands with `PATH="$HOME/.local/node22/bin:$PATH"` to use it. The 13 failures once seen in `src/__tests__/local-agent-path-resolution.test.ts` were host PATH leakage (real `claude`/`opencode` binaries on `/usr/bin` winning the resolver's PATH-precedence scan), not a Node-version issue; those pins are now hermetic via the test's `agentlessPath()` helper. Run `npm install` after pulling — a stale `node_modules` breaks `typecheck`/`build` with misleading TS errors in `src/arsenal/browser.ts`.
 
-## Git layout (this checkout)
+## Git layout & workflow
 
-- `origin` = the fork `hendrybui/T3MP3ST`; `upstream` = `elder-plinius/T3MP3ST`.
-- Never commit to or push `main` — keep it mirroring `upstream/main`. Work goes on feature branches pushed to `origin` only.
-- Commits are conventional with PR number: `feat(arsenal): ... (#203)`, `fix(obsidivm): ...`, `docs: ...`.
+- `origin` = fork `hendrybui/HexSecTempest` (this is the current project — the owner's fusion of T3MP3ST + a HexStrike tool backbone; **T3MP3ST and HexStrike are upstream projects, not this repo's own work**); `upstream` = `elder-plinius/T3MP3ST`.
+- **`main` is the owner's release line.** The owner may publish verified work directly to
+  `main` (fast-forward merge + push after the full test/verify-claims battery — that is how
+  `9473942`, `a8a95cb`, `1d9a949` landed). Unverified or in-flight work still goes on feature
+  branches pushed to `origin` first; only merge to `main` what has passed `npm run test:pr`
+  locally (or an explicit owner decision). Do not treat `main` as mirroring `upstream/main` —
+  it intentionally carries the HexSecTempest rebrand and fixes.
+- Conventional commits with PR number: `feat(arsenal): ... (#203)`, `fix(obsidivm): ...`, `docs: ...`.
+- PRs stay scoped to their title (`git diff --name-status upstream/main...HEAD`); squash merges; no force-pushing published review history.
+- `AGENTS.override.md`: maintainers may finish low-risk mechanical merge cleanup on an approved PR, never take over a branch needing product/architectural judgment.
+- `.aiwg/` holds generated maintainer workflow artifacts (`maintainer:check` / `maintainer:sync`) — sync, don't hand-edit. Same for `WORKSPACE.md` (AIWG-managed).
 
 ## Commands
 

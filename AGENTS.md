@@ -51,8 +51,13 @@ Other subsystems: `src/general/`, `src/admiral/`, `src/recon/` (web-tree-sitter 
 
 ## Git layout & workflow
 
-- `origin` = fork `hendrybui/T3MP3ST`; `upstream` = `elder-plinius/T3MP3ST`.
-- **Never commit to or push `main`** — keep it mirroring `upstream/main`. Work on feature branches pushed to `origin` only.
+- `origin` = fork `hendrybui/HexSecTempest` (this is the current project — the owner's fusion of T3MP3ST + a HexStrike tool backbone; **T3MP3ST and HexStrike are upstream projects, not this repo's own work**); `upstream` = `elder-plinius/T3MP3ST`.
+- **`main` is the owner's release line.** The owner may publish verified work directly to
+  `main` (fast-forward merge + push after the full test/verify-claims battery — that is how
+  `9473942`, `a8a95cb`, `1d9a949` landed). Unverified or in-flight work still goes on feature
+  branches pushed to `origin` first; only merge to `main` what has passed `npm run test:pr`
+  locally (or an explicit owner decision). Do not treat `main` as mirroring `upstream/main` —
+  it intentionally carries the HexSecTempest rebrand and fixes.
 - Conventional commits with PR number: `feat(arsenal): ... (#203)`.
 - PRs stay scoped to their title (`git diff --name-status upstream/main...HEAD`); squash merges; no force-pushing published review history.
 - `AGENTS.override.md`: maintainers may finish low-risk mechanical merge cleanup on an approved PR, never take over a branch needing product/architectural judgment.
