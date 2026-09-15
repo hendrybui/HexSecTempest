@@ -144,11 +144,11 @@ const DEFAULT_SETTINGS: TempestSettings = {
   apiKeys: {},
 
   defaultProvider: 'openrouter',
-  defaultModel: 'anthropic/claude-opus-4.8',
+  defaultModel: 'z-ai/glm-5.3-flash',
 
   openrouter: {
     baseUrl: 'https://openrouter.ai/api/v1',
-    defaultModel: 'anthropic/claude-opus-4.8',
+    defaultModel: 'z-ai/glm-5.3-flash',
     siteUrl: 'https://github.com/tempest',
     siteName: 'T3MP3ST',
   },
@@ -405,6 +405,15 @@ export const AVAILABLE_MODELS: Record<LLMProvider, ModelInfo[]> = {
       contextWindow: 203000,
       maxOutput: 8192,
       capabilities: ['reasoning', 'code', 'analysis', 'agents'],
+    },
+    // Z.AI — GLM 5.3 Flash (default backbone; cheap, fast, 1.3M ctx)
+    {
+      id: 'z-ai/glm-5.3-flash',
+      name: 'GLM 5.3 Flash',
+      provider: 'Z.AI',
+      contextWindow: 1300000,
+      maxOutput: 8192,
+      capabilities: ['reasoning', 'code', 'analysis', 'agents', 'tools'],
     },
     // Meta
     {

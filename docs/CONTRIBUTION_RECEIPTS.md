@@ -163,3 +163,63 @@ when a change introduces or updates measured behavior.
      HexStrike release adding an equivalent tool under a new name would default
      to `active` (approval-gated) rather than fenced, so the list needs review on
      HexStrike upgrades.
+
+---
+
+## Receipt: GLM default backbone recalibration (`z-ai/glm-5.3-flash`)
+
+- **Change**: Recalibrates the default model for the OpenRouter backbone from
+  `anthropic/claude-opus-4.8` to `z-ai/glm-5.3-flash`. This is the owner's
+  chosen default (GLM coding subscription; GLM is listed at $0/$0 on OpenRouter
+  today with a 1.3M context, so it rides the subscription instead of OpenRouter
+  credit). Touched: `DEFAULT_SETTINGS.defaultModel` and
+  `openrouter.defaultModel` in `src/config/index.ts`, the GLM 5.3 Flash entry in
+  `AVAILABLE_MODELS.openrouter` (so the UI/routing can select it), the whitebox
+  orchestrator default in `src/recon/whitebox.ts`, the decompose CLI
+  orchestrator default/usage in `scripts/decompose.mjs`, and the
+  `.env.example` override hint. All remain env-overridable
+  (`LLM_MODEL`, `TEMPEST_ORCHESTRATOR_MODEL`, CLI flags) — nothing is locked.
+  The persisted user store at `~/.config/t3mp3st-nodejs/config.json` was updated
+  through `config.set()` so the live server health reports the GLM default.
+- **Scope class**: `docs_only` (constant/default change, no target)
+- **Target authority**: `not_applicable`
+- **Network use**: `none` for this commit; the live confirmation issued a single
+  loopback-to-OpenRouter `prompt()` against the configured provider with the
+  user's own key.
+- **Run mode labels**: `api_backed` (live LLM smoke), `planning_only`
+- **Model/harness labels**:
+  - model: `z-ai/glm-5.3-flash` (default), `anthropic/claude-opus-4.8` (removed default)
+  - provider: `OpenRouter`
+  - harness: `vitest`, `npm run typecheck`, `npm run verify-claims`
+  - tool_access: `none`
+  - attempts: 1 live `prompt()` + full typecheck/test/verify-claims runs
+  - successes: GLM replied `"GLMOK"` to a minimal prompt; tests & claims green
+  - failures: 0
+  - abstentions: 0
+- **Commands run**:
+  - `npm run typecheck` -> pass
+  - `npx vitest run src/__tests__/index.test.ts` -> pass (with clean config dir; see residual risk)
+  - `npm run verify-claims` -> pass (27/27)
+  - `node scripts/hexstrike-doctor.mjs` -> pass (150 tools, bridge OK)
+  - live `new LLMBackbone(config.getLLMConfig('openrouter', 'z-ai/glm-5.3-flash')).prompt(...)` -> pass ("GLMOK", 2.6s)
+- **Artifacts**: `src/config/index.ts`, `src/recon/whitebox.ts`,
+  `scripts/decompose.mjs`, `.env.example`, `docs/CONTRIBUTION_RECEIPTS.md`
+- **Redaction**: no secrets added; ~/.t3mp3st/.env values were never committed.
+- **Claims changed**: `none`. `npm run verify-claims` re-derives 27/27 unchanged;
+  no README or headline number was edited. Historical opus-4.8 benchmark records
+  in `docs/INTEGRITY_LEDGER.md` and `bench/` are left untouched (evidence
+  honesty).
+- **Abstentions/refusals**: `not_applicable`
+- **Residual risk**:
+  1. **Local suite variability**: on this host, the wedged-dispatch test in
+     `src/__tests__/index.test.ts` fails when `~/.t3mp3st/.env` seeds
+     `T3MP3ST_MODEL_RECON` (phase routing calls `setLLM` on a fake loop). CI
+     (clean HOME/no such env) is green; locally run vitest with
+     `T3MP3ST_CONFIG_DIR` pointing at an empty dir to reproduce a clean env.
+  2. **GLM rate limits**: catalog pricing shows $0/$0 today; if Zhipu's free tier
+     throttles, high-volume recon may need a lower concurrency or a different
+     phase model. All models stay per-phase overridable via `T3MP3ST_MODEL_*`.
+  3. **Fork divergence risk**: deviating the default from upstream T3MP3ST's
+     Anthropic default is intentional (owner decision), but upstream merges may
+     re-introduce Anthropic defaults — keep the receipt visible at rebase time.
+     HexStrike upgrades.

@@ -293,7 +293,7 @@ function buildDecompositionConfig(): DecompositionConfig {
     (process.env.TEMPEST_WORKER_PROVIDER as LLMProvider) || 'openrouter';
   const orchestratorModel = config.getLLMConfig(
     orchestratorProvider,
-    process.env.TEMPEST_ORCHESTRATOR_MODEL || 'anthropic/claude-opus-4.8',
+    process.env.TEMPEST_ORCHESTRATOR_MODEL || 'z-ai/glm-5.3-flash',
   );
   const workerModel = config.getLLMConfig(
     workerProvider,

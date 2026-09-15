@@ -14,7 +14,7 @@
  *     --source-dir ./path/to/repo \
  *     --source-files "src/parser.c,include/types.h" \
  *     --worker-model anthropic/claude-fable-5 \
- *     --orchestrator-model anthropic/claude-opus-4.8 \
+ *     --orchestrator-model z-ai/glm-5.3-flash \
  *     [--rounds 5] [--queries-per-round 8] [--parallel] [--verbose]
  *
  *   node scripts/decompose.mjs --self-test    # offline smoke test
@@ -105,7 +105,7 @@ async function main() {
   --source-dir ./path/to/repo \\
   --source-files "file1.cpp,file2.h" \\
   [--worker-model claude-fable-5] \\
-  [--orchestrator-model claude-opus-4-8] \\
+  [--orchestrator-model z-ai/glm-5.3-flash] \\
   [--rounds 5] [--queries-per-round 8] \\
   [--parallel] [--verbose] [--self-test]`);
     process.exit(2);
@@ -130,7 +130,7 @@ async function main() {
 
   const orchestratorModel = config.getLLMConfig(
     args['orchestrator-provider'] || 'openrouter',
-    args['orchestrator-model'] || 'anthropic/claude-opus-4.8',
+    args['orchestrator-model'] || 'z-ai/glm-5.3-flash',
   );
   const workerModel = config.getLLMConfig(
     args['worker-provider'] || 'openrouter',
