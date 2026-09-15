@@ -1229,6 +1229,27 @@ function hostFromTarget(target: string): string {
   }
 }
 
+/**
+ * Extract an explicit port from a target value, or null when none is named.
+ * `hostFromTarget` intentionally strips the port (host-scope identity); this
+ * helper recovers it so PORT-AWARE scope matching can compare it. A bare
+ * `host` (e.g. "127.0.0.1" or "example.com") yields null → host-level scope;
+ * `host:8082` (or a URL with a port) yields the numeric port.
+ */
+function portFromTarget(target: string): number | null {
+  if (typeof target !== 'string' || !target.trim()) return null;
+  const raw = target.trim();
+  try {
+    const parsed = new URL(raw.includes('://') ? raw : `http://${raw}`);
+    if (parsed.port) return Number(parsed.port);
+    return null;
+  } catch {
+    // Fallback for host:port strings that URL parsing rejects (e.g. "[::1]:8080").
+    const m = raw.match(/:\s*(\d{1,5})\s*$/);
+    return m ? Number(m[1]) : null;
+  }
+}
+
 function isLocalOrPrivateTarget(target: string): boolean {
   const host = hostFromTarget(target);
   if (isLoopbackOrLabTarget(target)) return true;
@@ -1271,7 +1292,18 @@ function approvalMatches(approval: ApprovalRequest, action: GuardAction, target:
     const suffix = approvalHost.slice(1);
     return targetHost.endsWith(suffix) && targetHost !== approvalHost.slice(2);
   }
-  return approvalHost === targetHost;
+  if (approvalHost !== targetHost) return false;
+  // PORT-AWARE SCOPE (fix: a host:port receipt must constrain to that port).
+  // The host already matched above; now, when the APPROVAL names an explicit
+  // port, a call against a DIFFERENT explicit port on the same host is
+  // out-of-scope (e.g. receipt "127.0.0.1:8082" no longer authorizes a network
+  // request to "127.0.0.1:8888"). A bare-host approval (no port) keeps the
+  // legacy host-level behavior — enumeration of a whole host is what a port-less
+  // receipt authorizes. When the CALL names no explicit port (host-scoped
+  // enumeration tools), the port is not compared; the host match governs.
+  const approvalPort = portFromTarget(approval.target);
+  const targetPort = portFromTarget(target);
+  return approvalPort === null || targetPort === null || approvalPort === targetPort;
 }
 
 function ensureExecTargetsWithinApprovedTarget(targets: string[], approvedTarget: string): string[] {

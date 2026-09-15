@@ -269,3 +269,57 @@ when a change introduces or updates measured behavior.
      9router is the deliberate choice.
   3. **API-key handling**: `TEMPEST_LOCAL_API_KEY` requires the gateway key in
      the operator's env file; never commit it.
+
+---
+
+## Receipt: port-scoped authorization guard (host:port receipts constrain to port)
+
+- **Change**: Hardens `approvalMatches` in `src/server.ts` so a receipt that
+  names an explicit port (`127.0.0.1:8082`) no longer authorizes network /
+  command-execution calls against a DIFFERENT explicit port on the same host
+  (e.g. `127.0.0.1:8888`). Adds `portFromTarget()` and compares ports whenever
+  the approval names one; a bare-host receipt keeps legacy host-level behavior
+  (port-less authorizations still cover the whole host, since enumeration tools
+  don't name a specific port). This fixes the observed training-run drift where
+  a `:8082`-scoped receipt still let recon sweep `:8888` (the HexStrike backend).
+- **Scope class**: `local_lab` (fix verified against the local docker CTF lab
+  and the local HexStrike backend as a negative control)
+- **Target authority**: `not_applicable` — the change is to the authorization
+  comparator itself; no external target is contacted.
+- **Network use**: `loopback` — behavioral proof ran `curl` to
+  `127.0.0.1:8082` (local CTF lab, allowed) and `127.0.0.1:8888` (local
+  HexStrike backend, refused post-fix).
+- **Run mode labels**: `approval_gated`, `static_test`, `api_backed`
+- **Model/harness labels**:
+  - model: `not_applicable`
+  - provider: `not_applicable`
+  - harness: `vitest` (static invariant + gate suites), live `/api/tools/execute` A/B
+  - tool_access: `approval_gated`, `local_only` (loopback only)
+  - attempts: 1 behavioral A/B (8082 allowed / 8888 refused) + 4 vitest files
+  - successes: A/B behaved correctly; 35/35 vitest; typecheck pass
+  - failures: 0
+  - abstentions: 0
+- **Commands run**:
+  - `npm run typecheck` -> pass
+  - `env T3MP3ST_CONFIG_DIR=/nonexistent-xyz-dir npx vitest run src/__tests__/local-api-hardening-static.test.ts src/__tests__/arsenal-scope-gate.test.ts src/__tests__/arsenal-approval-gate.test.ts src/__tests__/mission-status-endpoint.test.ts` -> pass (35/35)
+  - `POST /api/approvals/request` `{target:"127.0.0.1:8082", action:"command_execution"}` + approve -> pass
+  - `POST /api/tools/execute` `{"command":"curl -sI http://127.0.0.1:8082/health","approvalId":"approval_6e467715"}` -> pass (curl executed)
+  - `POST /api/tools/execute` `{"command":"curl -sI http://127.0.0.1:8888/health","approvalId":"approval_6e467715"}` -> pass (refused: "Approval required before active execution")
+- **Artifacts**: `src/server.ts`, `src/__tests__/local-api-hardening-static.test.ts`
+- **Redaction**: none — no secrets involved; receipts are loopback-scoped.
+- **Claims changed**: `none` — `npm run verify-claims` unaffected; no README or
+  headline number touched.
+- **Abstentions/refusals**: `not_applicable`
+- **Residual risk**:
+  1. **Arsenal host-level scope gate is separate**: this fix constrains the
+     approval layer (mission start + `/api/tools/execute`). The Arsenal's own
+     `scopeViolation` (the in-Arsenal belt-and-braces) is host-scoped; a future
+     hardening could port-aware it too for defense-in-depth on tool handlers.
+  2. **Port-less call targets**: a tool call citing no explicit port (pure
+     host enumeration) still matches a port-less or port-scoped authorization.
+     This is deliberate — enumeration needs a host; active requests are what is
+     port-constrained. Operators should still scope receipts to the host when
+     enumeration is the intent.
+  3. **IPv6 bracket forms**: `portFromTarget` has a regex fallback for
+     `[::1]:port` forms; covered by unit test expectations, not yet by a live
+     IPv6 target (no such lab on this host).

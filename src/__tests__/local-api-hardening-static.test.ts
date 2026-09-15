@@ -143,6 +143,16 @@ describe('local API authorization hardening invariants', () => {
     expect(serverSource).toMatch(/body\.allowWildcard !== true/);
     expect(approvalMatches.indexOf("approval.target === '*'"))
       .toBeLessThan(approvalMatches.indexOf('targetUsesWildcard(approval.target) && !approval.wildcardOptIn'));
+    // PORT-AWARE SCOPE: a host:port receipt must constrain to that port, not
+    // silently authorize the whole host. Regression guard for the loopback
+    // training-brand drift (receipt "127.0.0.1:8082" must NOT authorize
+    // "127.0.0.1:8888"). The matcher must compare explicit ports.
+    expect(approvalMatches).toMatch(/portFromTarget\(approval\.target\)/);
+    expect(approvalMatches).toMatch(/portFromTarget\(target\)/);
+    expect(approvalMatches).toMatch(/approvalPort === null \|\| targetPort === null \|\| approvalPort === targetPort/);
+    // The port extractor itself must be present and strip-into-numerics.
+    expect(serverSource).toMatch(/function portFromTarget\(target: string\): number \| null/);
+    expect(serverSource).toMatch(/return Number\(parsed\.port\)/);
   });
 
   it('authorize-target only approves existing pending receipts and cannot mint broad active-action approvals', () => {
