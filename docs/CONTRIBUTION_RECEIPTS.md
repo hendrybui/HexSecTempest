@@ -323,3 +323,24 @@ when a change introduces or updates measured behavior.
   3. **IPv6 bracket forms**: `portFromTarget` has a regex fallback for
      `[::1]:port` forms; covered by unit test expectations, not yet by a live
      IPv6 target (no such lab on this host).
+
+---
+
+## Receipt: OPT-IN unrestricted lab mode (guardrails optional)
+
+- **Change**: Added `T3MP3ST_LAB_MODE=1` (bypass egress ScopeGuard + capability approval gate, unfence HexStrike) and `T3MP3ST_HEXSTRIKE_UNFENCED=1` (unfence only). Implemented as `src/arsenal/lab-mode.ts` (env helper + loud banners), `Arsenal.setLabMode()` gate bypass in `execute()`, conditional approval wiring in the `TempestCommand` constructor, and `includeFenced` on `HexStrikeBridge` (mints fenced tools as `dangerous` tier). Behavior with env unset is byte-identical to before; the mode is loud (boot banner + per-call warning for gated tiers). Also moved the bridge's fence refusal ahead of the not-connected check so it is deterministic pre-connect. README documents the switch.
+- **Scope class**: `local_lab` (opt-in switch for authorized lab/CTF runs on this host; not exercised against any external target).
+- **Target authority**: `not_applicable` (no target interacted with; live proof used `echo lab-mode-proof-ok` via loopback-only MCP→Flask path).
+- **Network use**: `loopback` (smoke used the existing loopback backend `127.0.0.1:8888` only).
+- **Run mode labels**: `static_test`, `mocked` (env-helper tests use `vi.stubEnv`), `local_agent`, `tool_backed`, `approval_gated` (default regression), `lab_unrestricted` (opt-in only).
+- **Model/harness labels**: harness `vitest`; no model involved. tool_access: default `approval_gated + fenced`; lab-mode `unscoped + unfenced` vocally.
+- **Commands run**:
+  - `npm run typecheck` -> pass (0 errors)
+  - `npx vitest run src/__tests__/lab-mode.test.ts src/__tests__/hexstrike-bridge.test.ts src/__tests__/arsenal-scope-gate.test.ts src/__tests__/arsenal-approval-gate.test.ts` -> pass (47/47)
+  - `npx vitest run` (full suite) -> pass (1017/1017, 91 files)
+  - live smoke with `includeFenced:true`: bridge `discovered=150, callable=150, fenced=0`; `execute_command` minted (dangerous) and executed `echo lab-mode-proof-ok` -> ok
+- **Artifacts**: `src/arsenal/lab-mode.ts`, `src/arsenal/index.ts`, `src/arsenal/hexstrike-bridge.ts`, `src/index.ts`, `src/__tests__/lab-mode.test.ts`, `README.md`, Obsidian vault notes (`HexSecTempest Lab Mode.md`, Index row).
+- **Redaction**: none — no secrets involved; smoke payload was a literal `echo`.
+- **Claims changed**: README gains a guardrails-optional note; no headline/benchmark number changed (`verify-claims` unaffected).
+- **Abstentions/refusals**: `not_applicable`.
+- **Residual risk**: (1) Lab mode is a policy bypass, not a capability boundary — anyone who sets it hands the operator (and any driving model) full shell + file-write surface; keep it off outside isolated labs. (2) `T3MP3ST_HEXSTRIKE_UNFENCED=1` minted `dangerous` tools still require approval unless lab mode also disables the gate. (3) Evidence/retest layer still demands an explicit Arsenal scope (`retest.ts:72`) — a documented lab-mode caveat. (4) Minted fenced tools were exercised only with a harmless `echo`; full per-tool behaviour depends on the upstream backend (see the angr/httpx findings).

@@ -244,6 +244,7 @@ import { buildPostExTools } from './arsenal/post-ex.js';
 import { ApprovalController, type ApprovalRequest } from './arsenal/approval.js';
 import { TOOL_ADAPTERS } from './arsenal/catalog.js';
 import { HexStrikeBridge, type HexStrikeBridgeConfig } from './arsenal/hexstrike-bridge.js';
+import { labModeEnabled, LAB_MODE_WARNING } from './arsenal/lab-mode.js';
 import { OpsecController, createBalancedOpsecConfig } from './opsec/index.js';
 import { CommsChannel } from './comms/index.js';
 import { AnalysisEngine } from './analysis/index.js';
@@ -397,6 +398,15 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
     this.targetEnv = new TargetEnvironment();
     this.vault = new EvidenceVault();
     this.arsenal = new Arsenal();
+    // OPT-IN unrestricted lab mode (T3MP3ST_LAB_MODE=1): scope + approval gates become
+    // optional so the FULL tool surface (incl. HexStrike fenced tools) can be exercised on
+    // an authorized lab. Default off — guardrails intact, byte-identical pre-change behavior.
+    const labMode = labModeEnabled();
+    this.arsenal.setLabMode(labMode);
+    if (labMode) {
+      // eslint-disable-next-line no-console
+      console.warn(LAB_MODE_WARNING);
+    }
     this.opsec = new OpsecController(config.opsec);
     this.comms = new CommsChannel();
 
@@ -432,7 +442,10 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
       // forwards this engine event to the SSE channel as `arsenal.approval`).
       onDecision: (record) => this.emit('approval:decision', record),
     });
-    this.arsenal.setApprovalController(this.approval);
+    // Not wired in lab mode — the approval gate is optional there (Arsenal still prints a
+    // loud per-call warning for gated tiers). Every other mode keeps the controller attached
+    // so Arsenal.execute() gate-runs before any handler body.
+    if (!labMode) this.arsenal.setApprovalController(this.approval);
 
     // Phase-1 (OPT-IN): arm the specialist arsenal. Gated behind T3MP3ST_FULL_ARSENAL so the honest
     // bash-only benchmark baseline (built-ins only) stays uncontaminated — a full-power / pack hunt

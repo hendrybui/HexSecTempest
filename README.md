@@ -19,6 +19,14 @@ Two honest caveats, because a tool count is not a capability:
   proxy interception are discovered but never minted as callable tools — minting
   them would defeat the command allowlist that keeps this thing safe to run.
 
+> **GUARDRAILS OPTIONAL (opt-in, loud, default OFF).** For authorized lab / CTF
+> testing of the FULL surface, set `T3MP3ST_LAB_MODE=1` — it bypasses the egress
+> ScopeGuard and the capability-approval gate and unfences the HexStrike bridge
+> (`execute_command` etc. become callable, `dangerous` tier). `T3MP3ST_HEXSTRIKE_UNFENCED=1`
+> lifts only the fence while approvals stay on. With neither set, every gate behaves
+> exactly as upstream. The mode prints a boot banner and a per-call warning so a lab
+> run is never mistaken for a guardrail-protected run. Authorized targets only.
+
 > **Derivative work.** HexSecTempest is built on
 > [T3MP3ST](https://github.com/elder-plinius/T3MP3ST) by elder-plinius and its
 > contributors, under `AGPL-3.0-or-later`. See

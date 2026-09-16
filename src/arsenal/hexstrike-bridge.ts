@@ -36,6 +36,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { EventEmitter } from 'eventemitter3';
 import type { CustomTool, ToolContext, ToolParameter, ToolResult, RiskTier, Severity } from '../types/index.js';
+import { hexstrikeUnfenced, HEXSTRIKE_UNFENCED_WARNING } from './lab-mode.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -52,6 +53,13 @@ export interface HexStrikeBridgeConfig {
   serverUrl: string;
   /** Per-call timeout in ms (HexStrike scans are long-running). */
   toolCallTimeoutMs: number;
+  /**
+   * OPT-IN (T3MP3ST_HEXSTRIKE_UNFENCED=1 / T3MP3ST_LAB_MODE=1): mint HexStrike's fenced
+   * arbitrary-capability tools as callable `dangerous`-tier CustomTools. Default false —
+   * the fence stays, safe by default. Minted tools still sit behind the approval gate
+   * unless lab mode also bypasses it.
+   */
+  includeFenced?: boolean;
   /** Tool-name prefixes to exclude from the callable surface (extra fences). */
   extraExcluded?: string[];
 }
@@ -65,6 +73,7 @@ export const DEFAULT_HEXSTRIKE_CONFIG: HexStrikeBridgeConfig = {
     || '/mnt/Pandora/Workshop/HexStrike/hexstrike-ai',
   serverUrl: process.env.HEXSTRIKE_SERVER_URL || 'http://127.0.0.1:8888',
   toolCallTimeoutMs: Number(process.env.HEXSTRIKE_TOOL_TIMEOUT_MS || 300_000),
+  includeFenced: hexstrikeUnfenced(),
 };
 
 // =============================================================================
@@ -326,6 +335,10 @@ export class HexStrikeBridge extends EventEmitter<HexStrikeBridgeEvents> {
     super();
     this.config = { ...DEFAULT_HEXSTRIKE_CONFIG, ...config };
     this.extraExcluded = new Set(config.extraExcluded ?? []);
+    if (this.config.includeFenced) {
+      // eslint-disable-next-line no-console
+      console.warn(HEXSTRIKE_UNFENCED_WARNING);
+    }
   }
 
   /** True once `connect()` has completed an MCP handshake. */
@@ -398,7 +411,7 @@ export class HexStrikeBridge extends EventEmitter<HexStrikeBridgeEvents> {
   }
 
   private isFenced(toolName: string): boolean {
-    return NON_CALLABLE_TOOLS.has(toolName) || this.extraExcluded.has(toolName);
+    return (!this.config.includeFenced && NON_CALLABLE_TOOLS.has(toolName)) || this.extraExcluded.has(toolName);
   }
 
   /** Every discovered tool name, fenced ones included. */
@@ -420,14 +433,16 @@ export class HexStrikeBridge extends EventEmitter<HexStrikeBridgeEvents> {
    * conversion test does so.
    */
   async execute(toolName: string, args: Record<string, unknown>): Promise<ToolResult> {
-    if (!this.client) {
-      return { success: false, error: 'HexStrike bridge is not connected' };
-    }
+    // Fence refusal first: a fenced tool is inert REGARDLESS of transport state, so the
+    // check is deterministic even before connect() (or when the backend is down).
     if (this.isFenced(toolName)) {
       return {
         success: false,
         error: `HexStrike tool "${toolName}" is fenced off the callable surface (arbitrary local capability).`,
       };
+    }
+    if (!this.client) {
+      return { success: false, error: 'HexStrike bridge is not connected' };
     }
     if (!this.tools.has(toolName)) {
       return { success: false, error: `HexStrike tool "${toolName}" was not discovered` };

@@ -23,6 +23,7 @@ import { jsAnalyzeTool } from './js-analyze.js';
 import { kevCheckTool } from './kev.js';
 import { binarySinkScanTool } from './binary.js';
 import { r2AnalyzeTool } from './r2-analyze.js';
+import { labModeCallWarning } from './lab-mode.js';
 
 const execFileAsync = promisify(execFile);
 import type {
@@ -322,6 +323,8 @@ export class Arsenal extends EventEmitter<ArsenalEvents> {
   private scope: ArsenalScope | null = null;
   /** Capability approval gate; null = gating off (backward-compat). The engine wires one for live runs. */
   private approval: ApprovalController | null = null;
+  /** OPT-IN unrestricted lab mode (T3MP3ST_LAB_MODE=1): scope + approval gates bypassed, with loud warnings. */
+  private labMode = false;
   private executions: ToolExecution[] = [];
 
   /**
@@ -371,6 +374,9 @@ export class Arsenal extends EventEmitter<ArsenalEvents> {
   setApprovalController(approval: ApprovalController | null): void { this.approval = approval; }
   getApprovalController(): ApprovalController | null { return this.approval; }
 
+  /** Toggle ARSENAL-LEVEL gate bypass (set by the engine from T3MP3ST_LAB_MODE). Default false = fully guarded. */
+  setLabMode(enabled: boolean): void { this.labMode = enabled; }
+
   /**
    * Execute a tool
    */
@@ -391,7 +397,8 @@ export class Arsenal extends EventEmitter<ArsenalEvents> {
 
     // Egress scope gate: deny out-of-scope network targets BEFORE the handler runs. A tool call
     // never reaches a host outside the authorized scope, regardless of what the model supplied.
-    const blockedHost = scopeViolation(this.scope, context);
+    // (Bypassed only in opt-in lab mode — T3MP3ST_LAB_MODE=1 — never the default baseline.)
+    const blockedHost = this.labMode ? null : scopeViolation(this.scope, context);
     if (blockedHost) {
       const denied: ToolResult = {
         success: false,
@@ -405,7 +412,14 @@ export class Arsenal extends EventEmitter<ArsenalEvents> {
     // until it has been approved (interactively "approve once, then free", or via the headless
     // pre-authorization allowlist); the hottest actions also fire a loud, audited, non-blocking
     // warning. Safe/active tools pass straight through. No controller wired = gating off (backward-compat).
-    if (this.approval && isGatedRisk(tool.riskTier)) {
+    if (this.labMode) {
+      // LAB MODE: gates optional — but the hottest actions still fire a loud non-blocking
+      // warning so an operator always SEES what is about to run without a gate.
+      if (isGatedRisk(tool.riskTier)) {
+        // eslint-disable-next-line no-console
+        console.warn(labModeCallWarning(toolName, tool.riskTier));
+      }
+    } else if (this.approval && isGatedRisk(tool.riskTier)) {
       const request: ApprovalRequest = {
         tool: toolName,
         risk: tool.riskTier!,
