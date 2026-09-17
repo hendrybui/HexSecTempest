@@ -344,3 +344,20 @@ when a change introduces or updates measured behavior.
 - **Claims changed**: README gains a guardrails-optional note; no headline/benchmark number changed (`verify-claims` unaffected).
 - **Abstentions/refusals**: `not_applicable`.
 - **Residual risk**: (1) Lab mode is a policy bypass, not a capability boundary — anyone who sets it hands the operator (and any driving model) full shell + file-write surface; keep it off outside isolated labs. (2) `T3MP3ST_HEXSTRIKE_UNFENCED=1` minted `dangerous` tools still require approval unless lab mode also disables the gate. (3) Evidence/retest layer still demands an explicit Arsenal scope (`retest.ts:72`) — a documented lab-mode caveat. (4) Minted fenced tools were exercised only with a harmless `echo`; full per-tool behaviour depends on the upstream backend (see the angr/httpx findings).
+
+---
+
+## Receipt: HexStrike bridge tools offered to mission operator toolkits (recon archetype)
+
+- **Change**: `ARCHETYPE_PROFILES.recon.defaultTools` in `src/operators/index.ts` now includes six HexStrike bridge-only tool names — `subfinder_scan`, `amass_scan`, `waybackurls_discovery`, `httpx_probe`, `katana_crawl`, `wafw00f_scan`. Before this change the operator AgentLoop's name allowlist (`AgentLoopOptions.tools` → `Arsenal.getToolDefinitions` precedence: names > categories) never offered any bridge-minted tool to the driving model, so a mission operator could never choose a HexStrike-only tool even with the bridge armed (`T3MP3ST_HEXSTRIKE=1`, 126 callable). This closed the last open claims-proof item ("operator prefers a HexStrike-only tool in a real mission") which was structurally impossible, not a model-preference issue.
+- **Scope class**: `local_lab` (loopback CTF range `127.0.0.1:8082` only).
+- **Target authority**: mission approval receipt `approval_*` for `http://127.0.0.1:8082` via `POST /api/approvals/:id/approve` (loopback CTF xss-stored range).
+- **Network use**: `loopback` (CTF docker range on `127.0.0.1:8082`; backend `127.0.0.1:8888`).
+- **Run mode labels**: `tool_backed`, `approval_gated` (default guarded surface — 126 callable; no lab mode).
+- **Model/harness labels**: live LLM mission run; harness `vitest` for regression.
+- **Commands run**: `npm run typecheck` -> 0; `npx vitest run src/__tests__/hexstrike-bridge.test.ts src/__tests__/lab-mode.test.ts` -> 29/29; live mission evidence in `logs/hexstrike_server.log` (grep `POST /api/tools` delta during mission id `1fb59d36` successor run).
+- **Artifacts**: `src/operators/index.ts` (recon profile only).
+- **Redaction**: none — no secrets involved.
+- **Claims changed**: none (no README/benchmark numbers).
+- **Abstentions/refusals**: other archetypes (scanner/exploiter/…) left unchanged intentionally — minimal diff for the proof; extending them is a follow-up decision.
+- **Residual risk**: (1) Bridge tools offered to the model still pass `Arsenal.execute()` gates per tier — scope receipts must name the target (port-aware). (2) The six names execute upstream binaries on the HexStrike host; absent binaries degrade to structured errors. (3) No fence change — the 24 NON_CALLABLE tools remain unminted by default.
