@@ -361,3 +361,48 @@ when a change introduces or updates measured behavior.
 - **Claims changed**: none (no README/benchmark numbers).
 - **Abstentions/refusals**: other archetypes (scanner/exploiter/…) left unchanged intentionally — minimal diff for the proof; extending them is a follow-up decision.
 - **Residual risk**: (1) Bridge tools offered to the model still pass `Arsenal.execute()` gates per tier — scope receipts must name the target (port-aware). (2) The six names execute upstream binaries on the HexStrike host; absent binaries degrade to structured errors. (3) No fence change — the 24 NON_CALLABLE tools remain unminted by default.
+
+---
+
+## Receipt: conditionally-minted bridge tools made explicit to the no-phantom guards
+
+- **Change**: The previous receipt's six bridge-only names landed in `ARCHETYPE_PROFILES.recon.defaultTools` while the two "advertised = wired" guards (`src/__tests__/no-phantom-tools.test.ts`, `src/__tests__/operator-toolkits.test.ts`) still treated every toolkit entry as statically wired — `npm run test:pr` went red (4 failures, 2 files). Fix: the bridge names are now a *declared, reviewed* surface instead of an unexplained literal — `OPERATOR_TOOLKIT_BRIDGE_TOOLS` plus `BRIDGE_KNOWN_TOOLS` and a recognised `ACTIVE_TOOLS` set in `src/arsenal/hexstrike-bridge.ts` (`riskTierForTool` keeps its conservative fallback; no tier changed) — and both guards admit bridge names only through that declaration, each with new invariants: every declared name must be recognised by the bridge (a typo fails), must not be fenced (`NON_CALLABLE_TOOLS`), must not be `dangerous` tier, must be genuinely bridge-only (not statically registered or adapter-minted), and the declaration must equal the bridge names the toolkits actually use (no unreviewed entry, no stale entry). The gate test no longer claims "exposed ≡ toolkit" (false for conditionally-minted names by design) and instead pins `exposed ≡ toolkit ∩ registered`, that no statically wired tool is ever dropped, that an armed bridge (emulated by registering the six names) exposes the full recon toolkit, and that an unarmed arsenal exposes none of them.
+- **Scope class**: `static_test` (no execution path changed; `getToolDefinitions` filtering semantics untouched).
+- **Target authority**: `not_applicable` (no target interacted with).
+- **Network use**: none (no bridge connect in this change; the armed case is emulated in-process).
+- **Run mode labels**: `static_test`, `mocked` (armed bridge emulated by registering stub `CustomTool`s).
+- **Model/harness labels**: harness `vitest`; no model involved.
+- **Commands run**:
+  - `npm run test:pr` -> pass, exit 0 (91 files / 1020 tests; lint 0 errors, 166 pre-existing warnings; doctor ok)
+  - `npm run build` -> pass (tsc, 0 errors)
+  - `npm run verify-claims` -> pass (27/27, 0 failed)
+  - negative control (temporary, reverted): renaming one declared name to `wafw00f_scanz` fails 7 assertions across the two guard files — the typo protection the guards had before is intact.
+- **Artifacts**: `src/arsenal/hexstrike-bridge.ts`, `src/__tests__/no-phantom-tools.test.ts`, `src/__tests__/operator-toolkits.test.ts`, `src/operators/index.ts` (comment only).
+- **Redaction**: none — no secrets involved.
+- **Claims changed**: none (no README/benchmark number touched; `verify-claims` unaffected).
+- **Abstentions/refusals**: toolkit contents are unchanged — the same six names remain the only bridge tools offered, to the recon archetype only; other archetypes stay untouched.
+- **Residual risk**: (1) The declaration is validated against the bridge's *recognised* name space, not HexStrike's live `tools/list` — a name that HexStrike drops upstream degrades to a silently absent tool (no call is ever issued), caught only by a live bridge smoke. (2) Adding a bridge name to a toolkit now requires a matching declaration edit; both guards fail otherwise, which is intended friction. (3) No gate/fence change: the 24 NON_CALLABLE tools stay unminted and per-tier scope + approval gates still run on every bridge call.
+
+---
+
+## Receipt: unified Flask config surface + War Room HexStrike status endpoint
+
+- **Change**: (1) HexStrike Flask (`hexstrike_server.py`, branch `feat/unified-flask`): the hardcoded limits are now env-configurable knobs — `HEXSTRIKE_COMMAND_TIMEOUT` (default 300), `HEXSTRIKE_CACHE_SIZE` (1000), `HEXSTRIKE_CACHE_TTL` (3600) — via a safe `_env_int` parser; `EnhancedCommandExecutor` now reads `COMMAND_TIMEOUT` at call time instead of def time so runtime tuning reaches new executions; new `GET /api/config` exposes the full 10-knob registry (env var, effective value, default, runtime-mutable flag, description; auth token redacted to a boolean); new `POST /api/config` runtime-tunes the mutable subset (command_timeout 10–7200, cache_size 0–100000, cache_ttl 0–86400, debug) with clamped validation and a warning log line per change. (2) T3MP3ST War Room (`src/server.ts`): new `GET /api/hexstrike/status` reports bridge arming (`T3MP3ST_HEXSTRIKE`), lab mode / unfenced flags, live engine status from `getHexStrikeStatus()` when a mission engine exists (null + hint otherwise — TempestCommand is lazy per mission), and a summarized live backend read (`/health` category stats + `/api/status/full` mcp_sync fence counts, tool rows, available/verified_working counts). No gate, fence, scope, or tool-surface semantics changed.
+- **Scope class**: `config_surface` (no execution path, gate, or fence change; executor timeout default semantics preserved at 300s).
+- **Target authority**: `not_applicable` (no target interacted with; loopback service config only).
+- **Network use**: `loopback` (`127.0.0.1:8888` Flask, `127.0.0.1:3333` War Room).
+- **Run mode labels**: `approval_gated` (default guarded surface unchanged — 126 callable, lab mode off).
+- **Model/harness labels**: no model involved; harness `vitest` + `tsc` + `py_compile`.
+- **Commands run**:
+  - `python -m py_compile hexstrike_server.py` -> OK; `npx tsc --noEmit` -> 0 errors
+  - `curl GET /api/config` -> 10 knobs listed with env names/values/mutability
+  - `curl POST /api/config {"command_timeout":600,"cache_ttl":1800}` -> applied; `{"command_timeout":99999,"cache_size":"abc"}` -> rejected with clamp errors; restored to 300/3600 after test
+  - `curl /api/status/full` -> mcp_sync 150/24/126, mapping_mismatches `[]` (fence sync intact)
+  - `node scripts/hexstrike-doctor.mjs` -> exit 0 (HEXSTRIKE BRIDGE: OK)
+  - `curl GET /api/hexstrike/status` (War Room) -> `armed:true, labMode:false, engine:null` + backend reachable, mcpSync 150/24/126, 150 tool rows, 40 available
+  - `npx vitest run src/__tests__/hexstrike-bridge.test.ts` -> 21/21 pass
+- **Artifacts**: `hexstrike_server.py` (HexStrike, `feat/unified-flask`), `src/server.ts`, `docs/TODO_HEXSTRIKE_FLASK.md`.
+- **Redaction**: `HEXSTRIKE_AUTH_TOKEN` never disclosed — config surface reports only `auth_token_configured: bool`.
+- **Claims changed**: none (no README/benchmark numbers).
+- **Abstentions/refusals**: no new tools minted; the 24-tool fence unchanged; SSE tool-lifecycle events and operator-archetype bridge tools remain TODO items, not part of this change.
+- **Residual risk**: (1) `POST /api/config` is unauthenticated on loopback like the rest of the API — `HEXSTRIKE_AUTH_TOKEN` governs non-loopback clients; do not bind `0.0.0.0` without it. (2) Runtime POST tuning is process-local and resets on restart — env vars / `.env` are the persistence layer. (3) The `/api/hexstrike/status` endpoint trusts the configured `HEXSTRIKE_SERVER_URL`; a wrong URL degrades to `reachable:false` with error, never to a fabricated healthy.

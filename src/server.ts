@@ -4937,6 +4937,70 @@ app.get(['/health', '/api/health'], (_req: Request, res: Response) => {
   });
 });
 
+// HexStrike bridge + backend status. The War Room health payload deliberately stays
+// bridge-free (honest built-ins-only baseline); this endpoint is the operator surface
+// for "is the 150-tool engine reachable, armed, and in sync". Engine status is null
+// until the first mission starts (TempestCommand is created lazily per mission).
+app.get('/api/hexstrike/status', async (_req: Request, res: Response) => {
+  const armed = /^(1|true|on)$/i.test(process.env.T3MP3ST_HEXSTRIKE ?? '');
+  const labMode = /^(1|true|yes|on)$/i.test(process.env.T3MP3ST_LAB_MODE ?? '');
+  const hexstrikeUnfenced = labMode || /^(1|true|yes|on)$/i.test(process.env.T3MP3ST_HEXSTRIKE_UNFENCED ?? '');
+  const engine = getTempestCommand();
+  const engineStatus = engine ? engine.getHexStrikeStatus() : null;
+
+  const serverUrl = process.env.HEXSTRIKE_SERVER_URL ?? 'http://127.0.0.1:8888';
+  const fetchJson = async (path: string): Promise<any> => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    try {
+      const r = await fetch(`${serverUrl}${path}`, { signal: ctrl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const backend: Record<string, unknown> = { reachable: false };
+  try {
+    const health: any = await fetchJson('/health');
+    backend.reachable = true;
+    backend.status = health.status;
+    backend.allEssentialToolsAvailable = health.all_essential_tools_available;
+    backend.categoryStats = health.category_stats;
+    backend.uptimeSeconds = health.telemetry?.uptime_seconds ?? null;
+    try {
+      const full: any = await fetchJson('/api/status/full');
+      backend.mcpSync = full.mcp_sync ?? null;
+      backend.toolRows = Array.isArray(full.tools) ? full.tools.length : null;
+      backend.verifiedWorking = Array.isArray(full.tools)
+        ? full.tools.filter((t: any) => t?.verified_working).length
+        : null;
+      backend.availableTools = Array.isArray(full.tools)
+        ? full.tools.filter((t: any) => t?.available).length
+        : null;
+    } catch {
+      backend.statusFull = 'unavailable';
+    }
+  } catch (err) {
+    backend.error = err instanceof Error ? err.message : String(err);
+  }
+
+  res.json({
+    armed,
+    labMode,
+    hexstrikeUnfenced,
+    engine: engineStatus,
+    backend,
+    serverUrl,
+    hint: !armed
+      ? 'Set T3MP3ST_HEXSTRIKE=1 and restart to arm the bridge.'
+      : !engineStatus
+        ? 'Bridge arms when the first mission starts (TempestCommand is lazy).'
+        : undefined,
+  });
+});
+
 app.get('/api/preflight', async (_req: Request, res: Response) => {
   res.json(await buildPreflightReport());
 });
