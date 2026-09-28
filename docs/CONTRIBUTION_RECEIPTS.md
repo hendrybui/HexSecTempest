@@ -406,3 +406,25 @@ when a change introduces or updates measured behavior.
 - **Claims changed**: none (no README/benchmark numbers).
 - **Abstentions/refusals**: no new tools minted; the 24-tool fence unchanged; SSE tool-lifecycle events and operator-archetype bridge tools remain TODO items, not part of this change.
 - **Residual risk**: (1) `POST /api/config` is unauthenticated on loopback like the rest of the API — `HEXSTRIKE_AUTH_TOKEN` governs non-loopback clients; do not bind `0.0.0.0` without it. (2) Runtime POST tuning is process-local and resets on restart — env vars / `.env` are the persistence layer. (3) The `/api/hexstrike/status` endpoint trusts the configured `HEXSTRIKE_SERVER_URL`; a wrong URL degrades to `reachable:false` with error, never to a fabricated healthy.
+
+---
+
+## Receipt: lab-mode enabled by owner + SSE hexstrike.tool wiring + tool-install batch 1
+
+- **Change**: (1) `~/.t3mp3st/.env` (the file T3MP3ST actually reads — repo-local `.env` is deliberately ignored by `src/config/index.ts`): `T3MP3ST_HEXSTRIKE=1` + `T3MP3ST_LAB_MODE=1` enabled per owner directive for full-surface testing — lab mode bypasses ScopeGuard + approval gate and lifts the bridge fence (150/150 callable, verified live). Both are comment-out-to-restore. (2) Engine wiring (`src/index.ts`, `src/types/index.ts`): `TempestCommand.enableHexStrike()` now re-emits bridge signals as engine events — `hexstrike:tool` (name, durationMs, success, riskTier), `hexstrike:connected`, `hexstrike:fenced` — wired BEFORE `connect()` so the initial connect signal is not missed; `connectBroadcast` forwards them to the SSE channel as `hexstrike.tool` / `hexstrike.connected` / `hexstrike.fenced`. Guarded by `hexstrikeEventsWired` (reset in `disableHexStrike`) against double-attach. (3) Tool installs: apt `sleuthkit scalpel testdisk fierce medusa patator nbtscan`; pipx `arjun volatility3 theharvester uro` (netexec failed — pip resolution error, follow-up); go `gau anew qsreplace` with symlinks into `~/.local/bin` (server PATH lacks `~/go/bin`). `enum4linux-ng`/`bulk-extractor`/`exploitdb` absent from this distro’s apt repos — follow-up via pipx/git/source.
+- **Scope class**: `event_wiring` + `host_tool_install` (no gate/fence semantics changed in code; lab mode is the pre-existing opt-in, now enabled in the operator env file).
+- **Target authority**: `loopback_only` (live proof: `httpx_probe` against `http://127.0.0.1:8888`).
+- **Network use**: `loopback` + package mirrors (apt/pip/go module downloads).
+- **Run mode labels**: `lab_mode` (owner-enabled), `tool_backed`.
+- **Model/harness labels**: no model in the proof path; harness `vitest` + `tsc`.
+- **Commands run**:
+  - engine probe: `getHexStrikeStatus()` under lab mode -> `{discovered:150, callable:150, fenced:0}`
+  - event probe: live `httpx_probe` loopback exec -> SSE-bound events `hexstrike:connected {toolCount:150,callableCount:150,fencedCount:0}` + `hexstrike:tool {name,durationMs,success:true,riskTier:active}`
+  - `npx tsc --noEmit` -> 0; `npx vitest run hexstrike-bridge + lab-mode` -> 29/29
+  - `node scripts/hexstrike-doctor.mjs` -> exit 0; availability up: api 1→4/8, forensics 8→11/16, osint 4→5/13, password 0→2/5, web_security 9→11/19
+  - War Room `/api/hexstrike/status` -> `armed:true, labMode:true, unfenced:true, backend healthy, availableTools 47`
+- **Artifacts**: `~/.t3mp3st/.env`, `src/index.ts`, `src/types/index.ts`, host binaries (apt/pipx/go).
+- **Redaction**: none — no secrets involved.
+- **Claims changed**: none (no README/benchmark numbers).
+- **Abstentions/refusals**: code defaults unchanged — a fresh checkout without the env file still boots fully gated; lab mode was NOT made the code default.
+- **Residual risk**: (1) Lab mode is ON in the operator env — every gated tier runs without receipts until the two lines are commented out; banners print per call, but log noise is the only tripwire. (2) `sleuthkit` apt package installs `icat/fls/...` — no `sleuthkit` binary exists, so `/health` keeps reporting it absent (detection quirk, not a failure). (3) pipx `netexec` failed on pip resolution — password category can reach 3/5 once fixed.

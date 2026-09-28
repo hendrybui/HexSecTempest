@@ -35,7 +35,8 @@ testing the **sanctioned opt-in** already ships in `src/arsenal/lab-mode.ts`:
 74 optional externals absent per `/health` `tools_status`. Install in priority order;
 re-run `node scripts/hexstrike-doctor.mjs` and diff `tools_status` after each batch.
 
-- [ ] Recon/OSINT batch: `theharvester`, `recon-ng`, `spiderfoot`, `gau`,
+- [~] Recon/OSINT batch: DONE `gau` (go, symlinked to `~/.local/bin`), `anew`,
+      `qsreplace`, `theharvester` (pipx). TODO `recon-ng`, `spiderfoot`,
       `paramspider`, `social-analyzer`
 - [ ] Web/API batch: `arjun`, `wpscan`, `jaeles`, `graphql-scanner`,
       `api-schema-analyzer`, `jwt-analyzer`
@@ -81,10 +82,12 @@ The War Room health payload was never extended (known gap) — SSE channel
       `HEXSTRIKE_COMMAND_TIMEOUT` / `HEXSTRIKE_CACHE_SIZE` / `HEXSTRIKE_CACHE_TTL`,
       call-time timeout read in `EnhancedCommandExecutor`. Receipt in
       `docs/CONTRIBUTION_RECEIPTS.md`.
-- [ ] Emit SSE events on HexStrike tool lifecycle during a mission:
-      `hexstrike.tool.start` (tool, riskTier, target) and
-      `hexstrike.tool.complete` (exit status, duration, evidence-id) so the War
-      Room timeline shows agent tool use live.
+- [x] Emit SSE events on HexStrike tool lifecycle during a mission:
+      `hexstrike.tool` (name, durationMs, success, riskTier), `hexstrike.connected`,
+      `hexstrike.fenced` — DONE 2026-09-28. Engine re-emits bridge signals
+      (wired before `connect()`), `connectBroadcast` forwards to SSE. Live-proven
+      with loopback `httpx_probe`. (Start-event variant was dropped: the bridge
+      emits on completion only — extending to start events needs a bridge hook.)
 - [ ] Stamp `last_run`/`duration` from Flask `activity` ring into the evidence
       ledger entry alongside the existing `provenance:'tool'` + raw output.
 - [ ] Give the relevant operator archetypes their HexStrike tools: add real MCP

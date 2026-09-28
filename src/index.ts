@@ -243,7 +243,7 @@ import { buildAdapterTools } from './arsenal/adapter-tools.js';
 import { buildPostExTools } from './arsenal/post-ex.js';
 import { ApprovalController, type ApprovalRequest } from './arsenal/approval.js';
 import { TOOL_ADAPTERS } from './arsenal/catalog.js';
-import { HexStrikeBridge, type HexStrikeBridgeConfig } from './arsenal/hexstrike-bridge.js';
+import { HexStrikeBridge, riskTierForTool, type HexStrikeBridgeConfig } from './arsenal/hexstrike-bridge.js';
 import { labModeEnabled, LAB_MODE_WARNING } from './arsenal/lab-mode.js';
 import { OpsecController, createBalancedOpsecConfig } from './opsec/index.js';
 import { CommsChannel } from './comms/index.js';
@@ -298,6 +298,7 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
    * HexStrike is disabled or its backend was unreachable at startup.
    */
   private hexstrike: HexStrikeBridge | null = null;
+  private hexstrikeEventsWired = false;
   /** Resolves once the HexStrike bridge has connected and registered its tools
    *  (or immediately, when HexStrike is disabled). Await before relying on
    *  HexStrike tools being present in the arsenal. */
@@ -1294,6 +1295,9 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
     this.on('detection:triggered', (data) => broadcast('detection', data));
     this.on('mission:phase_changed', (data) => broadcast('phase_changed', data));
     this.on('approval:decision', (data) => broadcast('arsenal.approval', data));
+    this.on('hexstrike:tool', (data) => broadcast('hexstrike.tool', data));
+    this.on('hexstrike:connected', (data) => broadcast('hexstrike.connected', data));
+    this.on('hexstrike:fenced', (data) => broadcast('hexstrike.fenced', data));
     this.on('scan:progress', (data) => broadcast('scan:progress', data));
     this.on('tick', (count) => {
       // Broadcast status every 5 ticks to avoid flooding
@@ -1469,6 +1473,19 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
     if (this.hexstrike?.isConnected) return;
 
     const bridge = this.hexstrike ?? new HexStrikeBridge(config);
+
+    // Re-emit bridge lifecycle/tool signals as engine events so connectBroadcast
+    // can forward them to the SSE channel (`hexstrike.tool` etc.) — this is what
+    // makes HexStrike calls visible in the War Room during a mission. Wired BEFORE
+    // connect() so the initial `bridge:connected` signal is not missed.
+    if (!this.hexstrikeEventsWired) {
+      this.hexstrikeEventsWired = true;
+      bridge.on('tool:executed', (e) =>
+        this.emit('hexstrike:tool', { ...e, riskTier: riskTierForTool(e.name) }));
+      bridge.on('bridge:connected', (e) => this.emit('hexstrike:connected', e));
+      bridge.on('tool:fenced', (e) => this.emit('hexstrike:fenced', e));
+    }
+
     await bridge.connect();
 
     // Register only names the arsenal does not already hold, so a HexStrike tool
@@ -1504,6 +1521,7 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
     const bridge = this.hexstrike;
     if (!bridge) return;
     this.hexstrike = null;
+    this.hexstrikeEventsWired = false;
     for (const name of bridge.getDiscoveredToolNames()) this.arsenal.unregister(name);
     await bridge.disconnect();
   }

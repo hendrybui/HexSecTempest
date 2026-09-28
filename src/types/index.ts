@@ -636,6 +636,12 @@ export interface CommandEvents {
     spicy: boolean;
     at: number;
   };
+  /** A HexStrike bridge tool finished executing (success or failure) — forwarded to SSE as `hexstrike.tool`. */
+  'hexstrike:tool': { name: string; durationMs: number; success: boolean; riskTier: RiskTier };
+  /** HexStrike bridge connected and minted its tools — forwarded to SSE as `hexstrike.connected`. */
+  'hexstrike:connected': { toolCount: number; callableCount: number; fencedCount: number };
+  /** A fenced HexStrike tool was refused — forwarded to SSE as `hexstrike.fenced`. */
+  'hexstrike:fenced': { name: string; riskTier: RiskTier };
 }
 
 // =============================================================================
