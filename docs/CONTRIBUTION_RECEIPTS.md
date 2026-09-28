@@ -428,3 +428,25 @@ when a change introduces or updates measured behavior.
 - **Claims changed**: none (no README/benchmark numbers).
 - **Abstentions/refusals**: code defaults unchanged — a fresh checkout without the env file still boots fully gated; lab mode was NOT made the code default.
 - **Residual risk**: (1) Lab mode is ON in the operator env — every gated tier runs without receipts until the two lines are commented out; banners print per call, but log noise is the only tripwire. (2) `sleuthkit` apt package installs `icat/fls/...` — no `sleuthkit` binary exists, so `/health` keeps reporting it absent (detection quirk, not a failure). (3) pipx `netexec` failed on pip resolution — password category can reach 3/5 once fixed.
+
+---
+
+## Receipt: visible version markers + version bump (Flask 6.1.0-unified.p4 / War Room 0.3.0)
+
+- **Change**: (1) Flask (`hexstrike_server.py`): new constant `HEXSTRIKE_SERVER_VERSION = "6.1.0-unified.p4"` (previously `/health` hardcoded `6.0.0`); `/health` now reports it plus `config_api: true`; `GET /api/version` includes it; `GET /api/config` carries a `version` row (immutable); startup banner prints `🏷️ Version: 6.1.0-unified.p4 (config API: GET/POST /api/config)`. (2) War Room (`src/server.ts`): health payload version `0.2.1` -> `0.3.0` (reflects the new endpoints + SSE events); `GET /api/hexstrike/status` now passes through `backend.serverVersion` and `backend.configApi` from the live Flask `/health` so a stale backend is visible from the War Room. Visibility only — no route, gate, fence, or tool-surface semantics changed.
+- **Scope class**: `versioning_visibility` (no execution path changed).
+- **Target authority**: `not_applicable`.
+- **Network use**: `loopback`.
+- **Run mode labels**: `lab_mode` (owner-enabled), `tool_backed`.
+- **Model/harness labels**: no model involved.
+- **Commands run**:
+  - `python -m py_compile hexstrike_server.py` -> OK; `npx tsc --noEmit` -> 0
+  - `curl /health` -> `version: 6.1.0-unified.p4, config_api: True`; `curl /api/version` -> same + branch `feat/unified-flask`; `curl /api/config` -> first row `version`; banner log line present
+  - War Room `curl /api/health` -> `version: 0.3.0`; `curl /api/hexstrike/status` -> `backend.serverVersion: 6.1.0-unified.p4, configApi: true, available: 47`
+  - `npm run verify-claims` -> 27 passed / 0 failed (version bump does not break pinned claims)
+  - `npx vitest run hexstrike-bridge + lab-mode` -> 29/29; `node scripts/hexstrike-doctor.mjs` -> exit 0
+- **Artifacts**: `hexstrike_server.py`, `src/server.ts`, `docs/HEXSTRIKE_CHEATSHEET.md` (+ Obsidian mirror).
+- **Redaction**: none — no secrets involved.
+- **Claims changed**: none; `verify-claims` re-run green after the bump.
+- **Abstentions/refusals**: `package.json` version (`1.0.0`) left alone — the bump targets the War Room health payload, which is what operators read; changing the package version would ripple into `package-lock.json` and pnpm workspace metadata for no operator-visible gain.
+- **Residual risk**: the Flask version string is a static constant — it must be bumped by hand on future patch commits, or the marker will understate the running code.

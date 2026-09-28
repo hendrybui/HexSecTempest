@@ -1,5 +1,21 @@
 # HexStrike × T3MP3ST Cheatsheet — revamped stack (2026-09-28)
 
+**Version markers (eyeball these to confirm a fresh build):**
+
+| Component | Version | Where to see it |
+|---|---|---|
+| HexStrike Flask | `6.1.0-unified.p4` | startup banner `🏷️ Version:`, `GET /health` → `version`, `GET /api/version`, first row of `/api/config` |
+| T3MP3ST War Room | `0.3.0` | server boot banner, `GET :3333/api/health` → `version` |
+| Bridge passthrough | — | `GET :3333/api/hexstrike/status` → `backend.serverVersion` + `backend.configApi` |
+
+Quick version check:
+```bash
+curl -s 127.0.0.1:8888/health | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["version"], d["config_api"])'
+# → 6.1.0-unified.p4 True
+curl -s 127.0.0.1:3333/api/health | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])'
+# → 0.3.0
+```
+
 Everything that exists and works in this checkout. No phantom commands.
 Ground truth: `docs/CONTRIBUTION_RECEIPTS.md`, commits `c82b261` / `44a0d12` / `7541389`.
 

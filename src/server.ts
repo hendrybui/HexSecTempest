@@ -4472,7 +4472,7 @@ function healthPayload(): Record<string, unknown> {
     status: 'operational',
     mode: currentMode(),
     organ: 't3mp3st',
-    version: '0.2.1',
+    version: '0.3.0',
     apiVersion: 'v1',
     llm: {
       configured: Boolean(llmConfig.apiKey) || providerRunsKeyless(llmConfig.provider),
@@ -4966,6 +4966,8 @@ app.get('/api/hexstrike/status', async (_req: Request, res: Response) => {
     const health: any = await fetchJson('/health');
     backend.reachable = true;
     backend.status = health.status;
+    backend.serverVersion = health.version ?? null;
+    backend.configApi = health.config_api ?? false;
     backend.allEssentialToolsAvailable = health.all_essential_tools_available;
     backend.categoryStats = health.category_stats;
     backend.uptimeSeconds = health.telemetry?.uptime_seconds ?? null;
