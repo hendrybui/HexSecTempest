@@ -17,7 +17,9 @@ curl -s 127.0.0.1:3333/api/health | python3 -c 'import json,sys; print(json.load
 ```
 
 Everything that exists and works in this checkout. No phantom commands.
-Ground truth: `docs/CONTRIBUTION_RECEIPTS.md`, commits `c82b261` / `44a0d12` / `7541389`.
+Ground truth: `docs/CONTRIBUTION_RECEIPTS.md`, commits `c82b261` / `44a0d12` / `7541389`
+(P4, 09-28/29) and `e5675c8` / `730f35f` (09-30). Session record:
+`HexSecTempest-Audit-2026-09-30-Cline` (Obsidian).
 
 ## 1. Boot sequence
 
@@ -81,6 +83,14 @@ curl -s -X POST 127.0.0.1:8888/api/config -H 'Content-Type: application/json' \
 # Flask — per-tool truth: availability, verified_working, last_run, fence sync
 curl -s 127.0.0.1:8888/api/status/full | python3 -m json.tool | less
 
+# Flask — FAIL-FAST health contract (NEW 2026-09-30): actually EXECUTES each probe binary
+# with a hard per-probe timeout. 200 {"status":"ok"} | 503 {"status":"degraded","offline_tools":[...]}
+curl -s -w ' HTTP %{http_code}\n' 127.0.0.1:8888/api/status/contract
+curl -s '127.0.0.1:8888/api/status/contract?tools=nmap,nuclei&timeout=8'   # ?tools= ?timeout=1..10
+
+# Flask — per-tool telemetry (NEW 2026-09-30): calls, error_rate, duration p50/p95, job queue depth
+curl -s 127.0.0.1:8888/api/telemetry/tools
+
 # War Room — bridge + backend in one call (armed / labMode / unfenced / mcpSync / availability)
 curl -s 127.0.0.1:3333/api/hexstrike/status
 ```
@@ -108,6 +118,31 @@ HexStrike activity now appears live:
 - **Fence sync is live**: Flask parses `NON_CALLABLE_TOOLS` from the bridge source —
   keep that set's format stable or `/api/status/full` fence counts go null.
 
+## 6b. Power-ups shipped 2026-09-30 (Cline session — `e5675c8`, `730f35f`)
+
+- **Fail-fast health contract** `GET /api/status/contract` — *executes* each binary
+  (default: the 8 essential tools) with a hard per-probe timeout instead of trusting a
+  cached `which`. `200 ok` / **`503 degraded` + `offline_tools`**. Flags:
+  `?tools=a,b,c` (override set), `?timeout=N` (1–10 s, default 5).
+- **Per-tool telemetry** `GET /api/telemetry/tools` — calls, error_rate, duration
+  p50/p95 from the 200-call ring buffer + background-job queue depth. Regression tripwire.
+- **Honest module probes** — `angr`/`pwntools` are venv Python modules, not PATH
+  binaries; `/health` and the availability probe now import-test them via
+  `sys.executable`. `angr` no longer falsely reads absent (it is installed, 9.2.120,
+  and the `/api/tools/angr` CFG endpoint runs for real).
+- **Host availability 62 → 77 / 124** (`/health → tools_status`; the probe set has 124
+  unique names, not 150 — the 150 is the MCP tool surface). New: `nxc`/`netexec`,
+  `enum4linux-ng`, `rustscan`, `theharvester`, `wpscan`, `searchsploit`, `bulk-extractor`,
+  `scout-suite`, `kube-hunter`, `kube-bench`, `terrascan`, `docker-bench-security`,
+  `ophcrack`, `hashcat-utils`, `hash-identifier`. Cloud **8/10**, password **5/5**.
+- **Proof enablement** — `volatility3_analyze`, the first bridge name with **no
+  built-in equivalent** (memory forensics), added to `OPERATOR_TOOLKIT_BRIDGE_TOOLS` +
+  the `analyst` toolkit (`730f35f`). The six pre-existing bridge names all duplicate
+  built-in `*_tool` wrappers, which is why a model rationally prefers the built-in.
+- **Deliberately NOT installed**: `metasploit-framework` (no apt package; ~1 GB
+  Rapid7 omnibus) — exploitation stays 1/3. Owner decision.
+
+
 ## 7. Troubleshooting fast table
 
 | Symptom | Fix |
@@ -119,6 +154,12 @@ HexStrike activity now appears live:
 | Tool "command not found" | Binary absent → `/health` `tools_status`; install, or pick another tool |
 | go tools undetected after install | `~/go/bin` not in server PATH → `ln -sf ~/go/bin/* ~/.local/bin/` |
 | apt "Unable to locate package" | Distro lacks Kali repos — use pipx/git/source (`enum4linux-ng`, `bulk-extractor`, `exploitdb`) |
+| PyPI 404 / "no versions" for a security tool (`netexec`, `crackmapexec`) | Name-based egress filter — install from git: `pipx install 'git+https://github.com/Pennyw0rth/NetExec.git@main'` |
+| `pipx install theharvester` says "No apps associated" | PyPI name is a 0.0.1 stub; use the git tag (`4.9.0` supports Py3.12; master needs ≥3.14): `pipx install /path/to/theHarvester` |
+| `cargo install rustscan` fails on `edition2024` | cargo < 1.85 — use the prebuilt release binary instead |
+| binary installed but `/health` still says absent | Probe name ≠ binary name (hyphen vs underscore). Alias it: `bulk_extractor`→`bulk-extractor`, `scout`→`scout-suite`, `theHarvester`→`theharvester` |
+| `bulk_extractor` build fails at `autoreconf` | `Makefile.auto_defs` is generated — run the repo's `sh bootstrap.sh` (needs `libewf-dev`, `re2c`, `libre2-dev`), then `./configure && make` |
+| `/api/status/contract` returns empty JSON right after a restart | Cold-start race: `/health`'s probe loop is still running — retry in a few seconds |
 | Call hangs | Raise `HEXSTRIKE_TOOL_TIMEOUT_MS` (T3MP3ST) or `command_timeout` (Flask, live-tunable) |
 
 ## 8. Restore the guarded default
