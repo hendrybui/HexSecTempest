@@ -188,7 +188,11 @@ export const ARCHETYPE_PROFILES: Record<OperatorArchetype, ArchetypeProfile> = {
     description: 'Analyzes findings and generates reports',
     mitreTactics: [],
     primaryPhases: [KillChainPhase.ACTIONS],
-    defaultTools: ['cve_lookup', 'jwt_decode', 'hash_crack', 'base64_decode', 'url_encode', 'technology_detect', 'ssl_scan', 'header_analysis', 'cors_check', 'csp_analysis', 'cookie_analysis', 'whois_lookup', 'dns_lookup', 'http_request', 'curl_request'],
+    defaultTools: ['cve_lookup', 'jwt_decode', 'hash_crack', 'base64_decode', 'url_encode', 'technology_detect', 'ssl_scan', 'header_analysis', 'cors_check', 'csp_analysis', 'cookie_analysis', 'whois_lookup', 'dns_lookup', 'http_request', 'curl_request',
+      // Bridge-only, capability-unique (no built-in memory-forensics tool): keeps in sync
+      // with OPERATOR_TOOLKIT_BRIDGE_TOOLS (src/arsenal/hexstrike-bridge.ts). Offered only
+      // when the bridge is armed; per-tier gates still apply on execute.
+      'volatility3_analyze'],
     toolCategories: ['web', 'vuln', 'recon', 'util'],
     capabilities: ['analysis', 'reporting', 'recommendations', 'risk_assessment'],
     techniques: [],

@@ -247,6 +247,11 @@ export const OPERATOR_TOOLKIT_BRIDGE_TOOLS: readonly string[] = [
   'httpx_probe',             // active
   'katana_crawl',            // active
   'wafw00f_scan',            // active
+  // local_read, and the ONLY one here with no built-in equivalent: the arsenal
+  // wraps no memory-forensics tool, so a mission that needs one must take it from
+  // the bridge. The six above duplicate built-in `*_tool` wrappers, which is why a
+  // model rationally prefers the built-in — this name is the capability-unique probe.
+  'volatility3_analyze',
 ];
 
 // =============================================================================

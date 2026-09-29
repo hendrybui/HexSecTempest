@@ -450,3 +450,22 @@ when a change introduces or updates measured behavior.
 - **Claims changed**: none; `verify-claims` re-run green after the bump.
 - **Abstentions/refusals**: `package.json` version (`1.0.0`) left alone — the bump targets the War Room health payload, which is what operators read; changing the package version would ripple into `package-lock.json` and pnpm workspace metadata for no operator-visible gain.
 - **Residual risk**: the Flask version string is a static constant — it must be bumped by hand on future patch commits, or the marker will understate the running code.
+
+## Receipt: bridge-only memory-forensics capability offered to the analyst toolkit (proof enablement)
+
+- **Change**: Added `volatility3_analyze` — a HexStrike bridge tool with **no built-in equivalent** (the arsenal wraps no memory-forensics tool; verified: zero `volatility`/`memory` ids in `src/arsenal/catalog.ts`) — to (1) `OPERATOR_TOOLKIT_BRIDGE_TOOLS` in `src/arsenal/hexstrike-bridge.ts` and (2) `ARCHETYPE_PROFILES.analyst.defaultTools` in `src/operators/index.ts`. Motivation: the six bridge names added by `161b3b5` (`subfinder_scan`, `amass_scan`, `waybackurls_discovery`, `httpx_probe`, `katana_crawl`, `wafw00f_scan`) each duplicate a built-in `*_tool` wrapper, so a mission model rationally prefers the built-in variant — the live "operator chooses a bridge tool" proof could never fire on a capability overlap. `volatility3_analyze` is capability-unique, so the choice is forced by task, not by disposition. Tier is `local_read` (`LOCAL_READ_TOOLS`) — reads a local memory image, opens no sockets.
+- **Scope class**: `operator_toolkit_surface` (offered-tool set changed; no gate, fence, or tier semantics changed).
+- **Target authority**: `not_applicable` (local artifact analysis; no network target).
+- **Network use**: `none` (local_read tier).
+- **Run mode labels**: `lab_mode` (owner-enabled in `~/.t3mp3st/.env`), `tool_backed`.
+- **Model/harness labels**: no model involved in this change; the proof mission that consumes it is model-driven.
+- **Commands run**:
+  - `npx vitest run no-phantom-tools + operator-toolkits + hexstrike-bridge` -> 34/34 (the declaration↔toolkit-equality guard and the recognised/non-fenced/non-dangerous/bridge-only invariants all hold for the new name)
+  - `npx tsc --noEmit` -> 0
+  - `curl 'http://127.0.0.1:8888/api/tools?q=volatility'` -> `volatility3_analyze | /api/tools/volatility3 | available: True`
+  - fence check: `NON_CALLABLE_TOOLS` contains no `volatility3_analyze` (0 matches); `riskTierForTool('volatility3_analyze') === 'local_read'`
+- **Artifacts**: `src/arsenal/hexstrike-bridge.ts`, `src/operators/index.ts`, `src/__tests__/operator-toolkits.test.ts`, `docs/CONTRIBUTION_RECEIPTS.md`.
+- **Redaction**: none — no secrets involved.
+- **Claims changed**: none; the minted surface count is unaffected (the name is minted only when the bridge is armed).
+- **Abstentions/refusals**: no tier/fence change; the other five archetypes' toolkits untouched; the six pre-existing bridge names left as-is (their overlap with built-ins is documented above, not "fixed" by removing built-ins — that would narrow the operator surface to force a benchmark result).
+- **Residual risk**: (1) `volatility3_analyze` is offered to the analyst archetype only — a mission that never spawns an analyst cannot select it; (2) volatility symbol tables (ISF) for uncommon kernels may be absent, degrading the call to a structured error (never a fabrication); (3) like all bridge names, the toolkit entry is validated against the bridge's recognised name space, not HexStrike's live `tools/list` — a live arm + call is the only end-to-end proof.

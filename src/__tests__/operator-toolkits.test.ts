@@ -58,7 +58,7 @@ describe('Operator role toolkits — specialized · broad · full-coverage · ov
     }
   });
 
-  it('with the HexStrike bridge armed, the toolkit reaches every bridge name it declares', () => {
+  it('with the HexStrike bridge armed, each toolkit reaches every bridge name it declares', () => {
     // Emulate the armed bridge: same registration the mission does, plus the MCP
     // tools the bridge mints into the arsenal when T3MP3ST_HEXSTRIKE=1.
     const armed = new Arsenal();
@@ -69,13 +69,20 @@ describe('Operator role toolkits — specialized · broad · full-coverage · ov
       name, description: `HexStrike bridge tool ${name}`, category: 'recon',
       handler: async () => ({ success: true, output: '' }),
     })));
-    const kit = ARCHETYPE_PROFILES.recon.defaultTools;
-    const exposed = armed.getToolDefinitions(undefined, kit).map(t => t.name);
-    expect(exposed.sort(), 'recon toolkit on an armed bridge').toEqual([...new Set(kit)].sort());
-    for (const name of OPERATOR_TOOLKIT_BRIDGE_TOOLS) expect(exposed, `${name} offered to recon`).toContain(name);
-    // and the armed arsenal still offers nothing outside the declared bridge surface
-    const extra = exposed.filter(n => !registeredNames.has(n) && !bridgeOnly.has(n));
-    expect(extra, 'gate exposed an undeclared tool').toEqual([]);
+    // The declaration is a union across toolkits (recon offers the recon bridge
+    // names; analyst offers the memory-forensics one), so the armed-bridge contract
+    // is checked PER archetype against the bridge names that toolbox actually names.
+    for (const a of archetypes) {
+      const kit = ARCHETYPE_PROFILES[a].defaultTools;
+      const exposed = armed.getToolDefinitions(undefined, kit).map(t => t.name);
+      expect(exposed.sort(), `${a} toolkit on an armed bridge`).toEqual([...new Set(kit)].sort());
+      for (const name of kit.filter(n => bridgeOnly.has(n))) {
+        expect(exposed, `${name} offered to ${a}`).toContain(name);
+      }
+      // and the armed arsenal still offers nothing outside the declared bridge surface
+      const extra = exposed.filter(n => !registeredNames.has(n) && !bridgeOnly.has(n));
+      expect(extra, `${a} gate exposed an undeclared tool`).toEqual([]);
+    }
   });
 
   it('each operator has BROAD coverage (>= 12 tools)', () => {
