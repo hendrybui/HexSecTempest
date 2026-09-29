@@ -147,6 +147,18 @@ const INTRUSIVE_TOOLS: ReadonlySet<string> = new Set([
   'api_fuzzer',
 ]);
 
+/**
+ * Recon/web names recognised explicitly at tier `active` — the tier `riskTierForTool`
+ * falls back to. NOT the exhaustive list of HexStrike's active-tier tools (there are
+ * many); it enumerates the names operator toolkits reference, so a typo in a toolkit
+ * fails the no-phantom guard instead of silently never matching a minted tool.
+ */
+const ACTIVE_TOOLS: ReadonlySet<string> = new Set([
+  'httpx_probe',
+  'katana_crawl',
+  'wafw00f_scan',
+]);
+
 /** Passive collection only — no packets directed at the target. */
 const PASSIVE_TOOLS: ReadonlySet<string> = new Set([
   'subfinder_scan',
@@ -185,8 +197,57 @@ export function riskTierForTool(toolName: string): RiskTier {
   if (INTRUSIVE_TOOLS.has(toolName)) return 'intrusive';
   if (PASSIVE_TOOLS.has(toolName)) return 'passive';
   if (LOCAL_READ_TOOLS.has(toolName)) return 'local_read';
+  // ACTIVE_TOOLS intentionally has no branch here: it *is* the fallback tier, so an
+  // explicit `return 'active'` for those names would be dead code.
   return 'active';
 }
+
+/**
+ * Every HexStrike name T3MP3ST recognises — the union of the tier tables above.
+ * HexStrike's minted surface is dynamic (`tools/list`), so this is not the callable
+ * set; it is the reviewed name space used to validate the bridge names an operator
+ * toolkit may offer (see `OPERATOR_TOOLKIT_BRIDGE_TOOLS`).
+ */
+export const BRIDGE_KNOWN_TOOLS: ReadonlySet<string> = new Set([
+  ...NON_CALLABLE_TOOLS,
+  ...CREDENTIAL_TOOLS,
+  ...INTRUSIVE_TOOLS,
+  ...PASSIVE_TOOLS,
+  ...LOCAL_READ_TOOLS,
+  ...ACTIVE_TOOLS,
+]);
+
+/**
+ * Bridge-only names a mission operator toolkit may offer to the driving model —
+ * the DECLARED mirror of the bridge names spelled into `ARCHETYPE_PROFILES.*.defaultTools`
+ * (`src/operators/index.ts`). The declaration and the toolkits must match exactly.
+ *
+ * Before this surface existed the operator AgentLoop's name allowlist
+ * (`AgentLoopOptions.tools` → `Arsenal.getToolDefinitions`, names > categories) could
+ * never offer a HexStrike-only tool, so a mission operator could not choose one even
+ * with the bridge armed — structurally impossible, not a model-preference issue.
+ *
+ * Invariants (pinned by `src/__tests__/no-phantom-tools.test.ts`):
+ *  - every entry is a real HexStrike MCP name, recognised by `BRIDGE_KNOWN_TOOLS`
+ *    (a typo fails the guard instead of silently never matching a minted tool);
+ *  - no entry is fenced (`NON_CALLABLE_TOOLS`) and none is `dangerous` tier;
+ *  - every entry is genuinely bridge-only — not statically registered in the arsenal;
+ *  - the set equals the bridge names actually present in the archetype toolkits, so
+ *    neither side can drift (an unreviewed toolkit entry, or a stale declaration).
+ *
+ * They stay honest at runtime because the arsenal's name allowlist INTERSECTS with
+ * registered tools: with the bridge unarmed these names match nothing and are never
+ * advertised; and when armed, each call still passes the scope gate and the
+ * capability-approval gate at its own tier (`riskTierForTool`).
+ */
+export const OPERATOR_TOOLKIT_BRIDGE_TOOLS: readonly string[] = [
+  'subfinder_scan',          // passive
+  'amass_scan',              // passive
+  'waybackurls_discovery',   // passive
+  'httpx_probe',             // active
+  'katana_crawl',            // active
+  'wafw00f_scan',            // active
+];
 
 // =============================================================================
 // SCHEMA CONVERSION

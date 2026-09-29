@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { Arsenal, BUILTIN_TOOLS, EXTERNAL_TOOLS } from '../arsenal/index.js';
 import { buildAdapterTools } from '../arsenal/adapter-tools.js';
 import { TOOL_ADAPTERS } from '../arsenal/catalog.js';
+import { OPERATOR_TOOLKIT_BRIDGE_TOOLS } from '../arsenal/hexstrike-bridge.js';
 import { ARCHETYPE_PROFILES } from '../operators/index.js';
 
 describe('Operator role toolkits — specialized · broad · full-coverage · overlap-OK', () => {
@@ -30,22 +31,51 @@ describe('Operator role toolkits — specialized · broad · full-coverage · ov
   arsenal.registerMany(mintedAdapters); // full production surface for the gate test
   const adapterNames = new Set(mintedAdapters.map(t => t.name));
   const allNames = arsenal.getToolDefinitions().map(t => t.name);
+  const registeredNames = new Set(allNames);
   const coreNames = new Set([...BUILTIN_TOOLS, ...EXTERNAL_TOOLS].map(t => t.name));
   const archetypes = Object.keys(ARCHETYPE_PROFILES) as (keyof typeof ARCHETYPE_PROFILES)[];
+  // Conditionally minted: present only when the HexStrike bridge is armed (T3MP3ST_HEXSTRIKE=1),
+  // which the statically built `arsenal` above is not. Reviewed in the bridge module.
+  const bridgeOnly = new Set(OPERATOR_TOOLKIT_BRIDGE_TOOLS);
 
   it('every operator toolkit contains only REAL arsenal tools (no phantoms)', () => {
     for (const a of archetypes) {
-      const phantom = ARCHETYPE_PROFILES[a].defaultTools.filter(t => !allNames.includes(t) && !adapterNames.has(t));
+      const phantom = ARCHETYPE_PROFILES[a].defaultTools.filter(t => !allNames.includes(t) && !adapterNames.has(t) && !bridgeOnly.has(t));
       expect(phantom, `${a} references non-existent tools`).toEqual([]);
     }
   });
 
-  it('the name-allowlist gate exposes EXACTLY the operator toolkit', () => {
+  it('the name-allowlist gate exposes exactly the toolkit the arsenal can honour — never a phantom', () => {
     for (const a of archetypes) {
       const kit = ARCHETYPE_PROFILES[a].defaultTools;
       const exposed = arsenal.getToolDefinitions(undefined, kit).map(t => t.name).sort();
-      expect(exposed, `${a} exposed tool set`).toEqual([...new Set(kit)].sort());
+      const expected = [...new Set(kit)].filter(n => registeredNames.has(n)).sort();
+      expect(exposed, `${a} exposed tool set`).toEqual(expected);
+      // Dropping a statically wired tool would silently shrink a role's toolkit; only
+      // the conditionally-minted bridge names may be absent on an unarmed bridge.
+      const dropped = [...new Set(kit)].filter(n => !registeredNames.has(n) && !bridgeOnly.has(n));
+      expect(dropped, `${a} lost a statically wired tool`).toEqual([]);
     }
+  });
+
+  it('with the HexStrike bridge armed, the toolkit reaches every bridge name it declares', () => {
+    // Emulate the armed bridge: same registration the mission does, plus the MCP
+    // tools the bridge mints into the arsenal when T3MP3ST_HEXSTRIKE=1.
+    const armed = new Arsenal();
+    armed.registerMany(BUILTIN_TOOLS);
+    armed.registerMany(EXTERNAL_TOOLS);
+    armed.registerMany(mintedAdapters);
+    armed.registerMany(OPERATOR_TOOLKIT_BRIDGE_TOOLS.map(name => ({
+      name, description: `HexStrike bridge tool ${name}`, category: 'recon',
+      handler: async () => ({ success: true, output: '' }),
+    })));
+    const kit = ARCHETYPE_PROFILES.recon.defaultTools;
+    const exposed = armed.getToolDefinitions(undefined, kit).map(t => t.name);
+    expect(exposed.sort(), 'recon toolkit on an armed bridge').toEqual([...new Set(kit)].sort());
+    for (const name of OPERATOR_TOOLKIT_BRIDGE_TOOLS) expect(exposed, `${name} offered to recon`).toContain(name);
+    // and the armed arsenal still offers nothing outside the declared bridge surface
+    const extra = exposed.filter(n => !registeredNames.has(n) && !bridgeOnly.has(n));
+    expect(extra, 'gate exposed an undeclared tool').toEqual([]);
   });
 
   it('each operator has BROAD coverage (>= 12 tools)', () => {
@@ -64,10 +94,10 @@ describe('Operator role toolkits — specialized · broad · full-coverage · ov
     expect(uncovered, 'tools no operator can reach').toEqual([]);
   });
 
-  it('toolkit references to FULL-arsenal adapters exist on the minted adapter surface', () => {
+  it('every toolkit reference resolves on a real surface (static · adapter-minted · declared bridge)', () => {
     const referenced = new Set(archetypes.flatMap(a => ARCHETYPE_PROFILES[a].defaultTools));
-    const phantoms = [...referenced].filter(n => !allNames.includes(n) && !adapterNames.has(n));
-    expect(phantoms, 'toolkit references to non-existent adapter tools').toEqual([]);
+    const phantoms = [...referenced].filter(n => !allNames.includes(n) && !adapterNames.has(n) && !bridgeOnly.has(n));
+    expect(phantoms, 'toolkit references to non-existent tools').toEqual([]);
   });
 
   it('overlap is allowed — generalist tools appear on multiple operators', () => {

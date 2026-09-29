@@ -106,9 +106,11 @@ export const ARCHETYPE_PROFILES: Record<OperatorArchetype, ArchetypeProfile> = {
     mitreTactics: ['TA0043'],
     primaryPhases: [KillChainPhase.RECON],
     defaultTools: ['dns_lookup', 'ip_info', 'username_search', 'telegram_lookup', 'email_format', 'reverse_dns', 'whois_lookup', 'subdomain_enum', 'subdomain_takeover_check', 'nmap_scan', 'port_scan', 'network_trace', 'version_detect', 'robots_txt_fetch', 'cidr_expand', 'technology_detect', 'http_request', 'curl_request', 'header_analysis', 'api_endpoint_discovery', 'subfinder_tool', 'httpx_tool', 'dnsx_tool', 'katana_tool', 'naabu_tool', 'gobuster_tool', 'nmap_tool',
-      // HexStrike bridge-only names (feat/unified-flask operator-surface fix): without
-      // these the name allowlist never offers bridge tools to the operator loop, so a
-      // mission operator could never choose one — gates still apply per tier on execute.
+      // HexStrike bridge-only names (feat/hexstrike-operator-surface): without these the
+      // name allowlist never offers a bridge tool to the operator loop, so a mission
+      // operator could never choose one — gates still apply per tier on execute. Kept in
+      // sync with OPERATOR_TOOLKIT_BRIDGE_TOOLS (src/arsenal/hexstrike-bridge.ts), which
+      // the no-phantom guard checks these entries against.
       'subfinder_scan', 'amass_scan', 'waybackurls_discovery', 'httpx_probe', 'katana_crawl', 'wafw00f_scan'],
     toolCategories: ['recon', 'web'],
     capabilities: ['osint', 'dns_enum', 'subdomain_discovery', 'port_scanning', 'service_detection'],
