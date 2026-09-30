@@ -7,6 +7,14 @@ upstream master) — **those commits are load-bearing, do not revert** (httpx `-
 semantics, angr/ghidra timeout kwarg, burpsuite route, `/status/full`, venv
 interpreter for angr/pwntools, ghidra headless export).
 
+> **CERTIFIED 2026-09-30** at `e5675c8`: handoff §11 acceptance gate **10/10 PASS**
+> against a restarted backend (pid 315318) — angr/ghidra `200 success:true` (angr now
+> installed and executing), httpx green on both `target` and `targets` keys, burpsuite
+> route 200 (clean rc 127, binary absent by design), bridge 21/21, verify-claims 27/27,
+> guardrail suites 26/26. Baseline moved: routes 156→172, binaries 50/124→77/127
+> (`password` 5/5, `essential` 8/8). Evidence:
+> `reports/flask-cert-20260930/REPORT-CERT-2026-09-30.md`.
+
 ## Phase 0 — Guardrails & testing modes (before touching anything)
 
 Gates default ON (fail-safe DENY) — that baseline never changes. For full-stack
@@ -50,9 +58,8 @@ re-run `node scripts/hexstrike-doctor.mjs` and diff `tools_status` after each ba
       `ropgadget`/`ropper`, `one-gadget`, `pwninit`
 - [ ] SKIP (fenced in T3MP3ST — installing adds nothing callable): `metasploit`,
       `msfvenom`, `burpsuite`, `zap`, `pacu`, `pwntools` exploit path
-- [ ] Password-family note: `hashcat`+`john` are present but category shows 0/5 —
-      check which binaries `/health` expects (`hash-identifier`, `hashpump`,
-      `ophcrack`, `hashcat-utils`) and install the cheap ones.
+- [x] Password-family note: RESOLVED 2026-09-30 — `/health` shows `password 5/5` live
+      (was 0/5); no missing binaries left in this family.
 
 ## Phase 2 — Consume the Flask status surface
 
@@ -90,8 +97,12 @@ The War Room health payload was never extended (known gap) — SSE channel
       emits on completion only — extending to start events needs a bridge hook.)
 - [ ] Stamp `last_run`/`duration` from Flask `activity` ring into the evidence
       ledger entry alongside the existing `provenance:'tool'` + raw output.
-- [ ] Give the relevant operator archetypes their HexStrike tools: add real MCP
+- [x] Give the relevant operator archetypes their HexStrike tools: add real MCP
       names (verbatim, no prefix) to `defaultTools` in `src/operators/index.ts`.
+      DONE on `feat/hexstrike-operator-surface` — recon toolkit (`161b3b5`) +
+      capability-unique `volatility3_analyze` for the analyst toolkit (`730f35f`),
+      surface pinned by `OPERATOR_TOOLKIT_BRIDGE_TOOLS` test (`43d4a85`); verified
+      live in `src/operators/index.ts:112,193` on 2026-09-30.
 - [ ] Mission-brief panel: show per-category availability from doctor step 2 so an
       operator sees "exploitation 0/3, password 0/5" before dispatching agents.
 - [ ] Long scans: tune `HEXSTRIKE_TOOL_TIMEOUT_MS` (default 300s) per mission
@@ -99,8 +110,10 @@ The War Room health payload was never extended (known gap) — SSE channel
 
 ## Phase 4 — Validation & receipts
 
-- [ ] `npx vitest run src/__tests__/hexstrike-bridge.test.ts` — stays 21/21.
-- [ ] `node scripts/hexstrike-doctor.mjs` — exit 0, category counts improved.
+- [x] `npx vitest run src/__tests__/hexstrike-bridge.test.ts` — stays 21/21.
+      Re-proven 2026-09-30 during certification (`bridge_suite.txt`).
+- [x] `node scripts/hexstrike-doctor.mjs` — exit 0, category counts improved:
+      77/127 families on 2026-09-30 (was 50/124 at the 09-17 baseline).
 - [ ] Live mission smoke: start a scoped loopback mission, confirm SSE shows
       `hexstrike.tool.*` events and evidence ledger carries Flask telemetry.
 - [ ] `docs/CONTRIBUTION_RECEIPTS.md` entries for every Phase 1/3 change.
