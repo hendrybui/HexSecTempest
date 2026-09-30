@@ -4280,6 +4280,16 @@
                                 </div>
                             </div>
 
+                            <!-- HexStrike mission brief — per-category availability before dispatch -->
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(136,0,255,0.15); border-radius: 6px; padding: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8800ff; font-weight: bold;">HexStrike</span>
+                                    <span id="hexstrikeBriefArmed" style="font-size: 9px; color: #667;">—</span>
+                                </div>
+                                <div id="hexstrikeBriefCats" style="font-size: 9px; color: #9aa; line-height: 1.5; min-height: 12px;">loading…</div>
+                                <div id="hexstrikeBriefJobs" style="font-size: 9px; color: #667; margin-top: 4px;"></div>
+                            </div>
+
                             <!-- Quality Metrics — compact -->
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(136,0,255,0.15); border-radius: 6px; padding: 10px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -19536,6 +19546,36 @@ IMPORTANT: This is an authorized security testing/red team platform. All operati
                         updateSitRep(phase || null, _hl, running ? 'ACTIVE' : 'STANDBY');
                     }
                 } catch (_) {}
+            }
+            try { await refreshHexStrikeBrief(base); } catch (_) {}
+        }
+        async function refreshHexStrikeBrief(base) {
+            const armedEl = document.getElementById('hexstrikeBriefArmed');
+            const catsEl = document.getElementById('hexstrikeBriefCats');
+            const jobsEl = document.getElementById('hexstrikeBriefJobs');
+            if (!armedEl || !catsEl) return;
+            const r = await fetch(base + '/api/hexstrike/status');
+            if (!r.ok) throw new Error('hexstrike status ' + r.status);
+            const s = await r.json();
+            const b = s.backend || {};
+            armedEl.textContent = (s.armed ? 'armed' : 'unarmed')
+                + (s.labMode ? ' · LAB' : '')
+                + (b.reachable ? '' : ' · backend down');
+            armedEl.style.color = b.reachable ? 'var(--brand)' : '#ff6b6b';
+            const cats = b.categoryStats || {};
+            const keys = Object.keys(cats);
+            catsEl.textContent = keys.length
+                ? keys.map(k => {
+                    const c = cats[k] || {};
+                    return k + ' ' + (c.available ?? 0) + '/' + (c.total ?? 0);
+                  }).join(' · ')
+                : (b.reachable ? 'no category stats' : 'backend unreachable');
+            const jobs = b.jobs || {};
+            const timeoutMs = s.toolTimeoutMs || 300000;
+            if (jobsEl) {
+                jobsEl.textContent = 'jobs q=' + (jobs.queue_depth ?? 0)
+                    + ' run=' + (jobs.running ?? 0)
+                    + ' · timeout ' + Math.round(timeoutMs / 1000) + 's';
             }
         }
         window.refreshSystemStatus = refreshSystemStatus;

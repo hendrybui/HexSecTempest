@@ -119,6 +119,23 @@ describe('normalizeToolResult', () => {
     expect(result.duration).toBe(12);
   });
 
+  it('stamps Flask last_run / duration onto ToolResult.metadata', () => {
+    const raw = {
+      content: [{ type: 'text', text: JSON.stringify({
+        success: true,
+        stdout: 'ok',
+        timestamp: '2026-09-30T16:00:00',
+        return_code: 0,
+        execution_time: 1.5,
+      }) }],
+    };
+    const result = normalizeToolResult('httpx_probe', raw, 1500);
+    expect(result.metadata).toMatchObject({
+      duration_ms: 1500,
+      last_run: { ts: '2026-09-30T16:00:00', exit: 0, duration_s: 1.5 },
+    });
+  });
+
   it('treats success:false as a failure and surfaces the error', () => {
     const raw = {
       content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'nmap not found' }) }],

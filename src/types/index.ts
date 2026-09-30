@@ -497,6 +497,10 @@ evidence?: { type: 'screenshot' | 'output' | 'request' | 'response'; content: st
   /** For 'tool' provenance: the tool that produced it + the raw output backing the claim. */
   toolName?: string;
   toolOutput?: string;
+  /** Flask last_run row (ts/exit/duration_s) when the finding came from a HexStrike call. */
+  flaskLastRun?: { ts?: string; exit?: number; duration_s?: number };
+  /** Wall-clock duration of the tool call in ms (bridge-measured). */
+  flaskDuration?: number;
 }
 
 export interface ToolResult {
@@ -506,6 +510,8 @@ export interface ToolResult {
   credentials?: Credential[];
   error?: string;
   duration?: number;
+  /** Optional Flask telemetry (last_run ts/exit/duration_s) carried next to provenance:'tool'. */
+  metadata?: Record<string, unknown>;
 }
 
 // =============================================================================

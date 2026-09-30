@@ -4981,8 +4981,14 @@ app.get('/api/hexstrike/status', async (_req: Request, res: Response) => {
       backend.availableTools = Array.isArray(full.tools)
         ? full.tools.filter((t: any) => t?.available).length
         : null;
+      backend.jobs = full.jobs ?? null;
     } catch {
       backend.statusFull = 'unavailable';
+    }
+    try {
+      backend.jobs = backend.jobs ?? await fetchJson('/api/jobs');
+    } catch {
+      backend.jobs = backend.jobs ?? null;
     }
   } catch (err) {
     backend.error = err instanceof Error ? err.message : String(err);
@@ -4995,6 +5001,7 @@ app.get('/api/hexstrike/status', async (_req: Request, res: Response) => {
     engine: engineStatus,
     backend,
     serverUrl,
+    toolTimeoutMs: Number(process.env.HEXSTRIKE_TOOL_TIMEOUT_MS || 300_000),
     hint: !armed
       ? 'Set T3MP3ST_HEXSTRIKE=1 and restart to arm the bridge.'
       : !engineStatus

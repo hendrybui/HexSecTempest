@@ -92,6 +92,9 @@ export const DEFAULT_HEXSTRIKE_CONFIG: HexStrikeBridgeConfig = {
  *  - exploitation frameworks: per-module adapters required (as with metasploit).
  *  - intercepting-proxy control: reroutes the host's own traffic.
  */
+// LOAD-BEARING FORMAT: hexstrike_server.py:_bridge_fence_counts() regex-parses this
+// `new Set([ ... ])` literal for /api/status/full fence counts. Keep it a single
+// Set-of-string-literals. Do not convert to an array helper or split across files.
 export const NON_CALLABLE_TOOLS: ReadonlySet<string> = new Set([
   // arbitrary execution
   'execute_command',
@@ -362,9 +365,18 @@ export function normalizeToolResult(toolName: string, raw: unknown, durationMs: 
   // call itself succeeded.
   const success = obj.success === undefined ? true : obj.success !== false;
 
+  const lastRun = {
+    ts: typeof obj.timestamp === 'string' ? obj.timestamp : undefined,
+    exit: typeof obj.return_code === 'number' ? obj.return_code : undefined,
+    duration_s: typeof obj.execution_time === 'number' ? obj.execution_time : undefined,
+  };
+  const metadata = (lastRun.ts || lastRun.exit !== undefined || lastRun.duration_s !== undefined)
+    ? { last_run: lastRun, duration_ms: durationMs }
+    : { duration_ms: durationMs };
+
   if (!success) {
     const errText = obj.error ?? obj.message ?? text ?? `HexStrike tool ${toolName} reported failure`;
-    return { success: false, error: stringifyValue(errText), duration: durationMs };
+    return { success: false, error: stringifyValue(errText), duration: durationMs, metadata };
   }
 
   const parts = OUTPUT_KEYS
@@ -372,7 +384,7 @@ export function normalizeToolResult(toolName: string, raw: unknown, durationMs: 
     .map((k) => stringifyValue(obj[k]));
   const output = parts.length ? parts.join('\n') : (text ?? stringifyValue(obj));
 
-  return { success: true, output, duration: durationMs };
+  return { success: true, output, duration: durationMs, metadata };
 }
 
 // =============================================================================

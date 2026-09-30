@@ -189,7 +189,14 @@ export class AgentLoop extends EventEmitter<AgentEvents> {
       if (toolStep.toolResult?.findings) {
         const out = String(toolStep.toolResult.output ?? '').slice(0, 4000);
         for (const tf of toolStep.toolResult.findings) {
-          allFindings.push({ ...tf, provenance: 'tool', toolName: bootstrapCall.name, toolOutput: out || tf.details });
+          allFindings.push({
+            ...tf,
+            provenance: 'tool',
+            toolName: bootstrapCall.name,
+            toolOutput: out || tf.details,
+            flaskLastRun: (toolStep.toolResult?.metadata?.last_run as ToolFinding['flaskLastRun']) ?? tf.flaskLastRun,
+            flaskDuration: toolStep.toolResult?.duration ?? tf.flaskDuration,
+          });
         }
       }
 
@@ -282,7 +289,14 @@ export class AgentLoop extends EventEmitter<AgentEvents> {
             if (toolStep.toolResult?.findings) {
               const out = String(toolStep.toolResult.output ?? '').slice(0, 4000);
               for (const tf of toolStep.toolResult.findings) {
-                allFindings.push({ ...tf, provenance: 'tool', toolName: toolCall.name, toolOutput: out || tf.details });
+                allFindings.push({
+                  ...tf,
+                  provenance: 'tool',
+                  toolName: toolCall.name,
+                  toolOutput: out || tf.details,
+                  flaskLastRun: (toolStep.toolResult?.metadata?.last_run as ToolFinding['flaskLastRun']) ?? tf.flaskLastRun,
+                  flaskDuration: toolStep.toolResult?.duration ?? tf.flaskDuration,
+                });
               }
             }
 

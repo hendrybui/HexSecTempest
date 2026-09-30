@@ -588,7 +588,11 @@ export class OperatorAgent extends EventEmitter<OperatorEvents> {
                 type: 'output',
                 content: finding.toolOutput || finding.details || '',
                 timestamp: Date.now(),
-                metadata: { tool: finding.toolName },
+                metadata: {
+                  tool: finding.toolName,
+                  last_run: finding.flaskLastRun,
+                  duration: finding.flaskDuration,
+                },
               }]
             : [],
           remediation: finding.remediation,

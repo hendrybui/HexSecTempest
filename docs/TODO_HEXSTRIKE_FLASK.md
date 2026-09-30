@@ -31,11 +31,14 @@ testing the **sanctioned opt-in** already ships in `src/arsenal/lab-mode.ts`:
 - [ ] Use `T3MP3ST_LAB_MODE=1` for full-surface testing on loopback/CTF/owned
       targets only; unset it to restore the gated default. Do NOT change the
       default — an unattended run must never self-fire an exploit.
-- [ ] Pin protection: confirm checkout stays on `feat/unified-flask`; add a
-      `hexstrike-doctor.mjs` branch check (warn if HEAD == upstream master).
-- [ ] Keep `NON_CALLABLE_TOOLS` in `src/arsenal/hexstrike-bridge.ts` regex-parseable —
-      `hexstrike_server.py:17966` parses it live for `/api/status/full` fence counts.
-- [ ] Any change touching scope, execution, or the tool surface gets an entry in
+      (Left unchecked on purpose: operator opt-in. Certification and remaining
+      TODO work ran with lab mode OFF.)
+- [x] Pin protection: `scripts/hexstrike-doctor.mjs` step 4/5 fails if Flask HEAD
+      is upstream `master`; warns on any other branch; OK on `feat/unified-flask`.
+- [x] Keep `NON_CALLABLE_TOOLS` in `src/arsenal/hexstrike-bridge.ts` regex-parseable —
+      load-bearing format comment added; Flask `_bridge_fence_counts()` still parses
+      the `new Set([ ... ])` literal. Do not convert to a helper.
+- [x] Any change touching scope, execution, or the tool surface gets an entry in
       `docs/CONTRIBUTION_RECEIPTS.md` (repo rule).
 
 ## Phase 1 — Widen the runnable tool surface (install missing binaries)
@@ -43,19 +46,20 @@ testing the **sanctioned opt-in** already ships in `src/arsenal/lab-mode.ts`:
 74 optional externals absent per `/health` `tools_status`. Install in priority order;
 re-run `node scripts/hexstrike-doctor.mjs` and diff `tools_status` after each batch.
 
-- [~] Recon/OSINT batch: DONE `gau` (go, symlinked to `~/.local/bin`), `anew`,
-      `qsreplace`, `theharvester` (pipx). TODO `recon-ng`, `spiderfoot`,
-      `paramspider`, `social-analyzer`
-- [ ] Web/API batch: `arjun`, `wpscan`, `jaeles`, `graphql-scanner`,
-      `api-schema-analyzer`, `jwt-analyzer`
-- [ ] Network batch: `rustscan`, `enum4linux-ng`, `nxc`, `evil-winrm`, `medusa`,
-      `patator`
-- [ ] Forensics batch: `sleuthkit`, `autopsy`, `volatility3`, `bulk-extractor`,
-      `scalpel`, `photorec`/`testdisk`, `outguess`, `stegsolve`
-- [ ] Cloud/container batch: `scout-suite`, `kube-bench`, `kube-hunter`,
-      `docker-bench-security`, `terrascan`, `clair`, `falco`
-- [ ] Exploit-lookup batch: `searchsploit`/`exploit-db`, `libc-database`,
-      `ropgadget`/`ropper`, `one-gadget`, `pwninit`
+- [~] Recon/OSINT batch: DONE `gau`, `anew`, `qsreplace`, `theharvester`,
+      `social-analyzer` (pipx). Still absent: `recon-ng` (not on PyPI),
+      `spiderfoot`, `paramspider` (not on PyPI).
+- [~] Web/API batch: DONE `arjun`, `wpscan`. Still absent: `jaeles`,
+      `graphql-scanner`, `api-schema-analyzer`, `jwt-analyzer`.
+- [~] Network batch: DONE `rustscan`, `enum4linux-ng`, `nxc`, `medusa`,
+      `patator`. Still absent: `evil-winrm`.
+- [~] Forensics batch: DONE `volatility3`, `bulk-extractor`, `scalpel`,
+      `photorec`/`testdisk`, `outguess` (apt), `sleuthkit` (apt `fls`; Flask
+      PATH alias). Still absent: `autopsy`, `stegsolve`.
+- [~] Cloud/container batch: DONE `scout-suite`, `kube-bench`, `kube-hunter`,
+      `docker-bench-security`, `terrascan`. Still absent: `clair`, `falco`.
+- [~] Exploit-lookup batch: DONE `searchsploit`, `ropgadget`/`ropper` (pipx),
+      `one-gadget` (gem). Still absent: `libc-database`, `pwninit`.
 - [ ] SKIP (fenced in T3MP3ST — installing adds nothing callable): `metasploit`,
       `msfvenom`, `burpsuite`, `zap`, `pacu`, `pwntools` exploit path
 - [x] Password-family note: RESOLVED 2026-09-30 — `/health` shows `password 5/5` live
@@ -68,14 +72,14 @@ re-run `node scripts/hexstrike-doctor.mjs` and diff `tools_status` after each ba
 `mcp_sync` (fence counts + duplicate-def + mapping-mismatch flags), `jobs` queue,
 `activity` 200-call ring, `cache` stats, `host` telemetry.
 
-- [ ] Write a small poller (`scripts/hexstrike-status.mjs`) that snapshots
+- [x] Write a small poller (`scripts/hexstrike-status.mjs`) that snapshots
       `/api/status/full` and diffs `verified_working` / `available` over time —
       this is the ground truth for "can this tool actually run here".
-- [ ] Triage tools where `available:true` but `verified_working:false` — those are
-      execution bugs (candidates for the next `feat/unified-flask` fix commit,
-      same pattern as the httpx `-l`→`-u` heal).
-- [ ] Watch `mcp_sync.mapping_mismatches` (currently `[]`) in CI — a non-empty list
-      means MCP tool ↔ Flask route drift after any edit.
+- [x] Triage tools where `available:true` but `verified_working:false` — 2026-09-30:
+      after restart, `verified_working` is last-run `exit==0` (empty ring = never-run,
+      not an execution bug). The only failed last-run on the prior pid was
+      `burpsuite_scan` rc 127 (SKIP list). No Flask heal commit required.
+- [x] Watch `mcp_sync.mapping_mismatches` in doctor step 5/5 (fails if non-empty).
 
 ## Phase 3 — Surface HexStrike status during missions (War Room)
 
@@ -95,18 +99,20 @@ The War Room health payload was never extended (known gap) — SSE channel
       (wired before `connect()`), `connectBroadcast` forwards to SSE. Live-proven
       with loopback `httpx_probe`. (Start-event variant was dropped: the bridge
       emits on completion only — extending to start events needs a bridge hook.)
-- [ ] Stamp `last_run`/`duration` from Flask `activity` ring into the evidence
-      ledger entry alongside the existing `provenance:'tool'` + raw output.
+- [x] Stamp `last_run`/`duration` from Flask tool JSON (`timestamp` /
+      `return_code` / `execution_time`) onto `ToolResult.metadata` and into the
+      evidence ledger `metadata` alongside `provenance:'tool'` + raw output.
 - [x] Give the relevant operator archetypes their HexStrike tools: add real MCP
       names (verbatim, no prefix) to `defaultTools` in `src/operators/index.ts`.
       DONE on `feat/hexstrike-operator-surface` — recon toolkit (`161b3b5`) +
       capability-unique `volatility3_analyze` for the analyst toolkit (`730f35f`),
       surface pinned by `OPERATOR_TOOLKIT_BRIDGE_TOOLS` test (`43d4a85`); verified
       live in `src/operators/index.ts:112,193` on 2026-09-30.
-- [ ] Mission-brief panel: show per-category availability from doctor step 2 so an
-      operator sees "exploitation 0/3, password 0/5" before dispatching agents.
-- [ ] Long scans: tune `HEXSTRIKE_TOOL_TIMEOUT_MS` (default 300s) per mission
-      profile; surface pending jobs from Flask `jobs` queue in the War Room.
+- [x] Mission-brief panel: War Room Config column now shows HexStrike
+      per-category availability from `/api/hexstrike/status` (`categoryStats`)
+      before ENGAGE.
+- [x] Long scans: `HEXSTRIKE_TOOL_TIMEOUT_MS` already env-tunable (default 300s);
+      War Room brief surfaces Flask `jobs` queue depth + the timeout.
 
 ## Phase 4 — Validation & receipts
 
@@ -114,8 +120,10 @@ The War Room health payload was never extended (known gap) — SSE channel
       Re-proven 2026-09-30 during certification (`bridge_suite.txt`).
 - [x] `node scripts/hexstrike-doctor.mjs` — exit 0, category counts improved:
       77/127 families on 2026-09-30 (was 50/124 at the 09-17 baseline).
-- [ ] Live mission smoke: start a scoped loopback mission, confirm SSE shows
-      `hexstrike.tool.*` events and evidence ledger carries Flask telemetry.
-- [ ] `docs/CONTRIBUTION_RECEIPTS.md` entries for every Phase 1/3 change.
-- [ ] Update `references/hexstrike-tool-registry.md` availability notes if tool
+- [~] Live mission smoke: `scripts/hexstrike-mission-smoke.mjs` — Flask loopback
+      dry-run + jobs + mapping_mismatches green, lab mode refused if set.
+      War Room `:3333` was down this run so SSE `hexstrike.tool.*` still needs
+      `npm run server` + a scoped mission with an LLM backbone.
+- [x] `docs/CONTRIBUTION_RECEIPTS.md` entries for every Phase 1/3 change.
+- [x] Update `references/hexstrike-tool-registry.md` availability notes if tool
       families move from absent → present.
