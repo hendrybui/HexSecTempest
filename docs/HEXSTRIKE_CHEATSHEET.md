@@ -110,9 +110,15 @@ HexStrike activity now appears live:
 ## 6. Power-ups shipped this revamp
 
 - **150/150 tools callable** with `T3MP3ST_LAB_MODE=1` (proven: `callable:150, fenced:0`).
-- **47/150 tools have their binary on this host** (was 40): added `arjun`, `gau`,
-  `anew`, `qsreplace`, `theharvester`, `volatility3`, `uro`, `sleuthkit`, `scalpel`,
-  `testdisk`, `fierce`, `medusa`, `patator`, `nbtscan`.
+- **110/127 tool families have their binary on this host** (was 47/150 at the 09-28
+  revamp; 77/127 pre-batch on 09-30): added `jaeles`, `httpie`, `evil-winrm`,
+  `wireshark`, `x8`, `pwninit`, `spiderfoot`, `responder`, `dotdotpwn`, `enum4linux`,
+  `paramspider`, `recon-ng`, `libc-database`, `stegsolve`, `autorecon`, `shodan`,
+  `censys`, `zsteg`, `xsser`, `outguess`, `sleuthkit`, `ropgadget`, `ropper`,
+  `one-gadget`, `social-analyzer`, plus honest PATH-probe fixes for `ghidra`,
+  `exploit-db`, `shodan-cli`, `censys-cli` and three in-process tools. Remaining
+  absences are fenced-by-design (6) or have no installable upstream — see
+  `references/hexstrike-tool-registry.md`.
 - **Executor timeout fix**: `EnhancedCommandExecutor` reads `COMMAND_TIMEOUT` at call
   time — runtime tuning and env values actually reach executions now.
 - **Fence sync is live**: Flask parses `NON_CALLABLE_TOOLS` from the bridge source —

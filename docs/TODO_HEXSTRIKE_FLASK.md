@@ -46,22 +46,30 @@ testing the **sanctioned opt-in** already ships in `src/arsenal/lab-mode.ts`:
 74 optional externals absent per `/health` `tools_status`. Install in priority order;
 re-run `node scripts/hexstrike-doctor.mjs` and diff `tools_status` after each batch.
 
-- [~] Recon/OSINT batch: DONE `gau`, `anew`, `qsreplace`, `theharvester`,
-      `social-analyzer` (pipx). Still absent: `recon-ng` (not on PyPI),
-      `spiderfoot`, `paramspider` (not on PyPI).
-- [~] Web/API batch: DONE `arjun`, `wpscan`. Still absent: `jaeles`,
-      `graphql-scanner`, `api-schema-analyzer`, `jwt-analyzer`.
-- [~] Network batch: DONE `rustscan`, `enum4linux-ng`, `nxc`, `medusa`,
-      `patator`. Still absent: `evil-winrm`.
-- [~] Forensics batch: DONE `volatility3`, `bulk-extractor`, `scalpel`,
-      `photorec`/`testdisk`, `outguess` (apt), `sleuthkit` (apt `fls`; Flask
-      PATH alias). Still absent: `autopsy`, `stegsolve`.
-- [~] Cloud/container batch: DONE `scout-suite`, `kube-bench`, `kube-hunter`,
-      `docker-bench-security`, `terrascan`. Still absent: `clair`, `falco`.
-- [~] Exploit-lookup batch: DONE `searchsploit`, `ropgadget`/`ropper` (pipx),
-      `one-gadget` (gem). Still absent: `libc-database`, `pwninit`.
+**Status 2026-09-30 (final for this pass): 110/127 families present** (was 50/124 at the
+09-17 baseline). Absent = 6 fenced-by-design + 11 with no installable upstream, each
+categorized in `references/hexstrike-tool-registry.md`.
+
+- [x] Recon/OSINT batch: `gau`, `anew`, `qsreplace`, `theharvester`, `social-analyzer`,
+      `recon-ng` (git), `paramspider` (pipx git), `spiderfoot` (git + own venv).
+      Still absent: none actionable.
+- [x] Web/API batch: `arjun`, `wpscan`, `jaeles` (go build), `xsser` (pipx git),
+      `graphql-scanner`/`jwt-analyzer`/`api-schema-analyzer` (in-process — honest probe
+      fix, not installs). Still absent: none actionable.
+- [x] Network batch: `rustscan`, `enum4linux-ng`, `nxc`, `medusa`, `patator`,
+      `evil-winrm` (gem), `enum4linux` (perl clone) → network **10/10**.
+- [x] Forensics batch: `volatility3`, `bulk-extractor`, `scalpel`, `photorec`/`testdisk`,
+      `outguess`, `sleuthkit` (apt `fls`), `stegsolve` (jar wrapper), `wireshark`,
+      `zsteg` → forensics **15/16**. Still absent: `autopsy` (Java GUI, no route).
+- [x] Cloud/container batch: `scout-suite`, `kube-bench`, `kube-hunter`,
+      `docker-bench-security`, `terrascan`. Still absent: `clair`, `falco`
+      (need container runtime/root).
+- [x] Exploit-lookup batch: `searchsploit`, `ropgadget`/`ropper` (pipx), `one-gadget`
+      (gem), `libc-database` (git), `pwninit` (prebuilt), `x8` (prebuilt binary).
+      Still absent: `hashpump` (upstream repo removed).
 - [ ] SKIP (fenced in T3MP3ST — installing adds nothing callable): `metasploit`,
-      `msfvenom`, `burpsuite`, `zap`, `pacu`, `pwntools` exploit path
+      `msfvenom`, `burpsuite`, `zap`, `pacu`, `pwntools` exploit path.
+      **Honoured** — none installed; they remain the 6 fenced absences.
 - [x] Password-family note: RESOLVED 2026-09-30 — `/health` shows `password 5/5` live
       (was 0/5); no missing binaries left in this family.
 
