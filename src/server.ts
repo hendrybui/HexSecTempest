@@ -23,6 +23,7 @@ import { redactString, redactLedgerText, redactSecrets } from './redact.js';
 import { LLMBackbone } from './llm/index.js';
 import { TempestCommand } from './index.js';
 import { resolveMissionLaunchConfig, resolveMissionStatus } from './mission/http-lifecycle.js';
+import { checkPairing } from './mission/postmortem.js';
 import { OpGeneral } from './general/index.js';
 import type { Directive } from './general/index.js';
 import { detectLocalAgents, pingLocalAgent, runLocalAgent, syncLocalAgentSelection } from './agent/local-agents.js';
@@ -7103,9 +7104,12 @@ function resolveGeneralLLMConfig(provider: string | undefined, model: string | u
   const selectedProvider = provider || defaultConfig.provider;
   // Local-agent backends use their own CLI login and need no T3MP3ST API key.
   if (selectedProvider === 'local-agent') {
+    const effectiveModel = model || 'codex';
+    const pairing = checkPairing('local-agent', effectiveModel);
+    if (!pairing.ok) throw new Error(pairing.error);
     return {
       provider: 'local-agent' as any,
-      model: model || 'codex',
+      model: effectiveModel,
       maxTokens: 8192,
       temperature: 0.4,
       timeout: readGeneralTimeoutEnv()

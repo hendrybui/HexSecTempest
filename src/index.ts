@@ -77,6 +77,7 @@ export {
   createReconTasks,
   createVulnScanTasks,
 } from './mission/index.js';
+import { recordStallPostmortem } from './mission/postmortem.js';
 export type { MissionEvents, TaskQueueEvents } from './mission/index.js';
 
 // Target
@@ -1056,6 +1057,18 @@ export class TempestCommand extends EventEmitter<CommandEvents> {
         const firstError = failedCurrentPhase[0].result?.error;
         this.stallReason = `stalled in ${mission.currentPhase}: ${failedCurrentPhase.length} required task(s) failed` +
           (firstError ? ` — ${firstError}` : '');
+        recordStallPostmortem({
+          provider: String(this.llmConfig?.provider ?? 'unknown'),
+          model: String(this.llmConfig?.model ?? 'unknown'),
+          reason: this.stallReason,
+          firstError: firstError ?? null,
+          missionId: mission.id,
+          recordedAt: new Date().toISOString(),
+          failedTasks: failedCurrentPhase.slice(0, 5).map(t => ({
+            id: String(t.id),
+            error: t.result?.error ?? null,
+          })),
+        });
         this.paused = true;
         this.emit('command:paused');
         return;
