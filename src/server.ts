@@ -7509,6 +7509,14 @@ app.post('/api/general/execute', async (req: Request, res: Response): Promise<vo
       if (!guard.allowed) { blockForApproval(res, guard); return; }
     }
 
+  if (generalConfig.provider === 'local-agent') {
+    const localAgent = await requireLiveLocalAgent(generalConfig.model);
+    if (!localAgent.ok) {
+      res.status(503).json({ error: localAgent.error });
+      return;
+    }
+  }
+
     // Create TempestCommand instance from the plan
     const cmd = createTempestCommandInstance(
       execConfig.missionName,
@@ -7656,6 +7664,14 @@ app.post('/api/general/auto', async (req: Request, res: Response): Promise<void>
       const guard = guardAction(req.body as Record<string, unknown>, 'mission_execution', target, `Execute General auto plan ${plan.codename} against ${target}`);
       if (!guard.allowed) { blockForApproval(res, guard); return; }
     }
+
+  if (generalConfig.provider === 'local-agent') {
+    const localAgent = await requireLiveLocalAgent(generalConfig.model);
+    if (!localAgent.ok) {
+      res.status(503).json({ error: localAgent.error });
+      return;
+    }
+  }
 
     const cmd = createTempestCommandInstance(
       execConfig.missionName,
